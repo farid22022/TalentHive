@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { BUDGET_TYPE, PROPOSAL_STATUS, PROPOSAL_LIMITS } from '../config/constants.js';
+import { BUDGET_TYPE, PROPOSAL_STATUS, PROPOSAL_INVITATION_STATUS, PROPOSAL_LIMITS } from '../config/constants.js';
 
 const { Schema } = mongoose;
 
@@ -36,6 +36,8 @@ const proposalSchema = new Schema(
       default: PROPOSAL_STATUS.SUBMITTED,
       index: true,
     },
+    invitationStatus: { type: String, enum: Object.values(PROPOSAL_INVITATION_STATUS), default: PROPOSAL_INVITATION_STATUS.NONE, index: true },
+    offer: { type: Schema.Types.ObjectId, ref: 'Offer', default: null, index: true },
     // Client review trail.
     reviewNote: { type: String, trim: true, maxlength: PROPOSAL_LIMITS.REVIEW_NOTE_MAX, default: '' },
     viewedAt: { type: Date, default: null }, // first time the client opened it

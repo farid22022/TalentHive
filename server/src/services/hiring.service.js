@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { Offer } from '../models/Offer.js';
 import { Contract } from '../models/Contract.js';
 import { Project } from '../models/Project.js';
@@ -8,7 +9,7 @@ import { Notification } from '../models/Notification.js';
 import { Proposal } from '../models/Proposal.js';
 import { Job } from '../models/Job.js';
 import { ApiError } from '../utils/ApiError.js';
-import { BUDGET_TYPE, CONTRACT_STATUS, JOB_STATUS, MILESTONE_STATUS, OFFER_STATUS, PROJECT_STATUS, PROPOSAL_STATUS, SUBMISSION_STATUS } from '../config/constants.js';
+import { BUDGET_TYPE, CONTRACT_STATUS, JOB_STATUS, MILESTONE_STATUS, OFFER_STATUS, PROJECT_STATUS, PROPOSAL_INVITATION_STATUS, PROPOSAL_STATUS, SUBMISSION_STATUS } from '../config/constants.js';
 
 const id = (v) => String(v);
 const activeContract = (c) => [CONTRACT_STATUS.DRAFT, CONTRACT_STATUS.ACTIVE, CONTRACT_STATUS.PAUSED, CONTRACT_STATUS.DISPUTED].includes(c.status);
@@ -16,6 +17,7 @@ const notify = (recipient, type, metadata = {}) => Notification.create({ recipie
 const audit = (actor, action, resourceType, resourceId, project, metadata = {}) => Activity.create({ actor, action, resourceType, resourceId, project, metadata });
 
 async function offerFor(user, offerId) {
+  if (!mongoose.isValidObjectId(offerId)) throw ApiError.badRequest('Invalid offer identifier');
   const offer = await Offer.findById(offerId).populate('job proposal');
   if (!offer) throw ApiError.notFound('Offer not found');
   if (id(offer.client) !== id(user._id) && id(offer.freelancer) !== id(user._id)) throw ApiError.notFound('Offer not found');
@@ -33,18 +35,24 @@ function validateDates(body) {
 
 export const hiringService = {
   async createOffer(user, body) {
-    const proposal = await Proposal.findById(body.proposal);
-    if (!proposal) throw ApiError.notFound('Proposal not found');
+    const proposal = body.job && body.freelancer
+      ? await Proposal.findOne({ job: body.job, freelancer: body.freelancer })
+      : await Proposal.findById(body.proposal);
+    if (!proposal) throw ApiError.badRequest('Proposal could not be matched to this applicant');
     const job = await Job.findById(proposal.job);
     if (!job || id(job.client) !== id(user._id)) throw ApiError.forbidden('You do not own this job');
-    if (job.status !== JOB_STATUS.OPEN) throw ApiError.badRequest('This job is no longer open');
+    if (!mongoose.isValidObjectId(job._id) || !mongoose.isValidObjectId(proposal.freelancer)) throw ApiError.badRequest('Applicant data contains an invalid database identifier');
+    // A job can have several independent offers/contracts; only closed jobs reject hiring.
+    if (![JOB_STATUS.OPEN, JOB_STATUS.FILLED].includes(job.status)) throw ApiError.badRequest('This job is no longer available for hiring');
     if (![PROPOSAL_STATUS.SUBMITTED, PROPOSAL_STATUS.SHORTLISTED].includes(proposal.status)) throw ApiError.badRequest('This proposal is not eligible for hiring');
+    const existingOffer = await Offer.findOne({ proposal: proposal._id }).sort({ createdAt: -1 }).lean();
+    if (existingOffer && [OFFER_STATUS.DRAFT, OFFER_STATUS.SENT, OFFER_STATUS.VIEWED, OFFER_STATUS.CHANGES_REQUESTED].includes(existingOffer.status)) throw ApiError.conflict('An invitation has already been sent for this proposal');
     const existing = await Contract.findOne({ job: job._id, freelancer: proposal.freelancer }).lean();
-    if (existing && activeContract(existing)) throw ApiError.conflict('This freelancer already has an active contract for the job');
+    if (existing && activeContract({ ...existing, status: String(existing.status) })) throw ApiError.conflict('This freelancer already has an active contract for the job');
     validateDates(body);
     const milestones = body.milestones || [];
     if (body.contractType === BUDGET_TYPE.FIXED && Math.abs(milestones.reduce((sum, m) => sum + (m.amount || 0), 0) - (body.totalBudget || 0)) > 0.01) throw ApiError.badRequest('Milestone amounts must equal the total budget');
-    const offer = await Offer.create({ ...body, client: user._id, freelancer: proposal.freelancer, job: job._id, status: OFFER_STATUS.DRAFT });
+    const offer = await Offer.create({ ...body, proposal: proposal._id, client: user._id, freelancer: proposal.freelancer, job: job._id, status: OFFER_STATUS.DRAFT });
     await audit(user._id, 'OFFER_CREATED', 'Offer', offer._id, null, { proposal: proposal._id });
     return offer;
   },
@@ -62,12 +70,12 @@ export const hiringService = {
     if (![OFFER_STATUS.DRAFT, OFFER_STATUS.CHANGES_REQUESTED].includes(offer.status)) throw ApiError.badRequest('Offer cannot be sent in its current state');
     offer.status = OFFER_STATUS.SENT; offer.changeRequest = '';
     if (!offer.expiresAt || offer.expiresAt <= new Date()) offer.expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
-    await offer.save(); await notify(offer.freelancer, 'OFFER_SENT', { sender: user._id }); await audit(user._id, 'OFFER_SENT', 'Offer', offer._id);
+    await offer.save(); await Proposal.updateOne({ _id: offer.proposal }, { $set: { offer: offer._id, invitationStatus: PROPOSAL_INVITATION_STATUS.SENT } }); await notify(offer.freelancer, 'OFFER_SENT', { sender: user._id }); await audit(user._id, 'OFFER_SENT', 'Offer', offer._id);
     return offer;
   },
   async viewOffer(user, offerId) { const offer = await offerFor(user, offerId); if (id(offer.freelancer) === id(user._id) && offer.status === OFFER_STATUS.SENT) { offer.status = OFFER_STATUS.VIEWED; await offer.save(); } return offer; },
-  async requestChanges(user, offerId, message) { const offer = await offerFor(user, offerId); if (id(offer.freelancer) !== id(user._id)) throw ApiError.forbidden('Only the freelancer can request changes'); if (![OFFER_STATUS.SENT, OFFER_STATUS.VIEWED].includes(offer.status)) throw ApiError.badRequest('Offer is not awaiting review'); offer.status = OFFER_STATUS.CHANGES_REQUESTED; offer.changeRequest = message; await offer.save(); await notify(offer.client, 'OFFER_CHANGES_REQUESTED', { sender: user._id }); return offer; },
-  async rejectOffer(user, offerId) { const offer = await offerFor(user, offerId); if (id(offer.freelancer) !== id(user._id)) throw ApiError.forbidden('Only the freelancer can decline an offer'); if (![OFFER_STATUS.SENT, OFFER_STATUS.VIEWED, OFFER_STATUS.CHANGES_REQUESTED].includes(offer.status)) throw ApiError.badRequest('Offer cannot be declined'); offer.status = OFFER_STATUS.REJECTED; offer.rejectedAt = new Date(); await offer.save(); await notify(offer.client, 'OFFER_REJECTED', { sender: user._id }); return offer; },
+  async requestChanges(user, offerId, message) { const offer = await offerFor(user, offerId); if (id(offer.freelancer) !== id(user._id)) throw ApiError.forbidden('Only the freelancer can request changes'); if (![OFFER_STATUS.SENT, OFFER_STATUS.VIEWED].includes(offer.status)) throw ApiError.badRequest('Offer is not awaiting review'); offer.status = OFFER_STATUS.CHANGES_REQUESTED; offer.changeRequest = message; await offer.save(); await Proposal.updateOne({ _id: offer.proposal }, { $set: { invitationStatus: PROPOSAL_INVITATION_STATUS.CHANGES_REQUESTED } }); await notify(offer.client, 'OFFER_CHANGES_REQUESTED', { sender: user._id }); return offer; },
+  async rejectOffer(user, offerId) { const offer = await offerFor(user, offerId); if (id(offer.freelancer) !== id(user._id)) throw ApiError.forbidden('Only the freelancer can decline an offer'); if (![OFFER_STATUS.SENT, OFFER_STATUS.VIEWED, OFFER_STATUS.CHANGES_REQUESTED].includes(offer.status)) throw ApiError.badRequest('Offer cannot be declined'); offer.status = OFFER_STATUS.REJECTED; offer.rejectedAt = new Date(); await offer.save(); await Proposal.updateOne({ _id: offer.proposal }, { $set: { invitationStatus: PROPOSAL_INVITATION_STATUS.DECLINED } }); await notify(offer.client, 'OFFER_REJECTED', { sender: user._id }); return offer; },
   async withdrawOffer(user, offerId) { const offer = await offerFor(user, offerId); if (id(offer.client) !== id(user._id)) throw ApiError.forbidden('Only the client can withdraw an offer'); if (![OFFER_STATUS.DRAFT, OFFER_STATUS.SENT, OFFER_STATUS.VIEWED, OFFER_STATUS.CHANGES_REQUESTED].includes(offer.status)) throw ApiError.badRequest('Offer cannot be withdrawn'); offer.status = OFFER_STATUS.WITHDRAWN; await offer.save(); return offer; },
 
   async acceptOffer(user, offerId) {
@@ -76,15 +84,15 @@ export const hiringService = {
     const existing = await Contract.findOne({ offer: offer._id });
     if (existing) return { offer, contract: existing, project: await Project.findOne({ contract: existing._id }) };
     if (![OFFER_STATUS.SENT, OFFER_STATUS.VIEWED].includes(offer.status) || (offer.expiresAt && offer.expiresAt <= new Date())) throw ApiError.badRequest('Offer is no longer available');
-    const job = await Job.findById(offer.job); if (!job || job.status !== JOB_STATUS.OPEN) throw ApiError.badRequest('Job is no longer available');
-    const conflict = await Contract.findOne({ job: job._id, freelancer: offer.freelancer, status: { $in: [CONTRACT_STATUS.DRAFT, CONTRACT_STATUS.ACTIVE, CONTRACT_STATUS.PAUSED, CONTRACT_STATUS.DISPUTED] } });
-    if (conflict) throw ApiError.conflict('The freelancer already has an active contract for this job');
+    const job = await Job.findById(offer.job); if (!job || ![JOB_STATUS.OPEN, JOB_STATUS.FILLED].includes(job.status)) throw ApiError.badRequest('Job is no longer available');
+    const conflict = await Contract.findOne({ job: job._id, freelancer: offer.freelancer }).lean();
+    if (conflict && activeContract({ ...conflict, status: String(conflict.status) })) throw ApiError.conflict('The freelancer already has an active contract for this job');
     const contractNumber = `CG-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
     const contract = await Contract.create({ client: offer.client, freelancer: offer.freelancer, job: offer.job, proposal: offer.proposal, offer: offer._id, contractNumber, title: offer.title, description: offer.description, type: offer.contractType, rate: offer.rate, totalAmount: offer.totalBudget, estimatedHours: offer.estimatedHours, startDate: offer.startDate, endDate: offer.endDate, terms: offer.terms, status: CONTRACT_STATUS.ACTIVE, signedAt: new Date() });
     const project = await Project.create({ client: offer.client, freelancer: offer.freelancer, job: offer.job, contract: contract._id, title: offer.title, description: offer.description, status: PROJECT_STATUS.NOT_STARTED, startDate: offer.startDate, dueDate: offer.endDate });
     if (offer.contractType === BUDGET_TYPE.FIXED) await Milestone.insertMany(offer.milestones.map((m, order) => ({ ...m.toObject?.() || m, project: project._id, contract: contract._id, order })));
     offer.status = OFFER_STATUS.ACCEPTED; offer.acceptedAt = new Date(); await offer.save();
-    await Proposal.updateOne({ _id: offer.proposal }, { $set: { status: PROPOSAL_STATUS.ACCEPTED, decidedAt: new Date() } });
+    await Proposal.updateOne({ _id: offer.proposal }, { $set: { status: PROPOSAL_STATUS.ACCEPTED, invitationStatus: PROPOSAL_INVITATION_STATUS.ACCEPTED, decidedAt: new Date() } });
     await Job.updateOne({ _id: job._id }, { $set: { status: JOB_STATUS.FILLED } });
     await notify(offer.client, 'OFFER_ACCEPTED', { sender: user._id }); await audit(user._id, 'OFFER_ACCEPTED', 'Offer', offer._id, project._id, { contract: contract._id });
     return { offer, contract, project };

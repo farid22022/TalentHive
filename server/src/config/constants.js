@@ -180,6 +180,7 @@ export const PROPOSAL_STATUS = Object.freeze({
   WITHDRAWN: 'withdrawn',
   ACCEPTED: 'accepted',
 });
+export const PROPOSAL_INVITATION_STATUS = Object.freeze({ NONE: 'none', SENT: 'sent', ACCEPTED: 'accepted', DECLINED: 'declined', CHANGES_REQUESTED: 'changes_requested' });
 
 // Statuses that still count toward a job's proposalsCount and stay editable by their author.
 export const ACTIVE_PROPOSAL_STATUSES = Object.freeze([
@@ -228,6 +229,13 @@ export const REVIEW_STATUS = Object.freeze({ DRAFT: 'draft', PENDING: 'pending',
 export const AGENCY_STATUS = Object.freeze({ ACTIVE: 'active', PAUSED: 'paused', SUSPENDED: 'suspended', CLOSED: 'closed' });
 export const AGENCY_VISIBILITY = Object.freeze({ PUBLIC: 'public', PRIVATE: 'private', UNLISTED: 'unlisted' });
 export const AGENCY_ROLES = Object.freeze({ OWNER: 'owner', ADMIN: 'admin', MANAGER: 'manager', MEMBER: 'member' });
+
+// Phase 24 simulated marketplace card and wallet domain.
+export const PHASE24_FINANCE = Object.freeze({ CURRENCY: 'BDT', ACTIVATION_MINIMUM: 500, CARD_NETWORK: 'TalentHive Network', CARD_TYPE: 'developer' });
+export const VIRTUAL_CARD_STATUS = Object.freeze({ PENDING: 'pending', INACTIVE: 'inactive', ACTIVE: 'active', SUSPENDED: 'suspended', BLOCKED: 'blocked', EXPIRED: 'expired', CANCELLED: 'cancelled' });
+export const SIMULATED_PROVIDER = Object.freeze({ BKASH: 'BKASH_SIMULATED', NAGAD: 'NAGAD_SIMULATED', ROCKET: 'ROCKET_SIMULATED' });
+export const SIMULATED_PAYMENT_STATUS = Object.freeze({ PENDING: 'pending', PROCESSING: 'processing', SUCCESS: 'success', FAILED: 'failed', CANCELLED: 'cancelled' });
+export const LEDGER_ENTRY_TYPE = Object.freeze({ CARD_RELOAD: 'card_reload', CLIENT_PAYMENT: 'client_payment', DEVELOPER_EARNING: 'developer_earning', PLATFORM_FEE: 'platform_fee', REFUND: 'refund', ADJUSTMENT: 'adjustment', WITHDRAWAL: 'withdrawal' });
 
 // Cover-letter tones offered by the AI assistant.
 export const PROPOSAL_TONE = Object.freeze({

@@ -1,5 +1,5 @@
 import { Outlet, NavLink, Link } from 'react-router-dom';
-import { Briefcase, LayoutDashboard, User, MessageSquare, Settings, Sparkles, ShieldCheck, Bookmark, FileText, Inbox, FolderKanban } from 'lucide-react';
+import { Briefcase, LayoutDashboard, User, MessageSquare, Settings, Sparkles, ShieldCheck, Bookmark, FileText, Inbox, FolderKanban, CreditCard, Handshake } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 
 const items = [
@@ -9,10 +9,12 @@ const items = [
   { to: '/dashboard/proposals/received', label: 'Proposals Received', icon: Inbox },
   { to: '/dashboard/saved-jobs', label: 'Saved Jobs', icon: Bookmark },
   { to: '/dashboard/proposals', label: 'My Proposals', icon: FileText, end: true },
+  { to: '/dashboard/offers', label: 'My Offers', icon: Handshake, developerOnly: true },
   { to: '/dashboard/cv-analysis', label: 'CV Analyzer', icon: Sparkles },
   { to: '/dashboard/verification', label: 'Verification', icon: ShieldCheck },
   { to: '/dashboard/messages', label: 'Messages', icon: MessageSquare },
   { to: '/dashboard/projects', label: 'Projects', icon: FolderKanban },
+  { to: '/dashboard/card', label: 'My Virtual Card', icon: CreditCard, developerOnly: true },
   { to: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -22,7 +24,7 @@ const adminItems = [
 
 export function DashboardLayout() {
   const { hasRole } = useAuth();
-  const nav = [...items, ...(hasRole('admin') ? adminItems : [])];
+  const nav = items.filter((item) => !item.developerOnly || hasRole('freelancer')).concat(hasRole('admin') ? adminItems : []);
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="mx-auto flex max-w-7xl gap-6 px-4 py-6">

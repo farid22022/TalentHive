@@ -13,6 +13,7 @@ import { ROLES } from '../config/constants.js';
 import { sendTemplatedEmail } from '../integrations/email/index.js';
 import { logger } from '../config/logger.js';
 import { syncUserBadges } from './verification.badges.js';
+import { virtualCardService } from './virtualCard.service.js';
 
 const REFRESH_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -60,6 +61,7 @@ export const authService = {
     const user = new User({ name, email, role: chosenRole, roles: [chosenRole] });
     await user.setPassword(password);
     await user.save();
+    if (chosenRole === ROLES.FREELANCER) await virtualCardService.ensureForUser(user);
 
     // Fire-and-log verification email (mocked in dev).
     const verifyRaw = issueSingleUse(user._id, 'verify_email', 24 * 60 * 60 * 1000);

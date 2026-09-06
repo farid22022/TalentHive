@@ -11,6 +11,8 @@ import { Contract } from '../models/Contract.js';
 import { ApiError } from '../utils/ApiError.js';
 import { config } from '../config/index.js';
 import { getPaymentProvider } from '../integrations/payment/index.js';
+import { virtualCardService } from './virtualCard.service.js';
+import { PaymentTransaction } from '../models/PaymentTransaction.js';
 import { PAYMENT_STATUS, ESCROW_STATUS, MILESTONE_STATUS, CONTRACT_STATUS } from '../config/constants.js';
 
 const sid = (v) => String(v);
@@ -39,6 +41,18 @@ export const paymentService = {
     const payment = await Payment.create({ paymentNumber: number('PAY'), client: p.client, freelancer: p.freelancer, job: contract.job, proposal: contract.proposal, offer: contract.offer, contract: contract._id, project: p._id, milestone: m._id, provider: provider.name, providerPaymentId: intent.id, amount: m.amount, amountMinor: grossMinor, currency: config.payment.currency, platformFee: feeMinor / 100, freelancerAmount: (grossMinor - feeMinor) / 100, status: PAYMENT_STATUS.CHECKOUT_CREATED, escrowStatus: ESCROW_STATUS.FUNDING_PENDING, idempotencyKey });
     m.paymentState = 'funding_pending'; await m.save(); return payment;
   },
+  async simulateFundMilestone(user, milestoneId, outcome, idempotencyKey, simulatedProvider = 'BKASH_SIMULATED') {
+    if (!idempotencyKey) throw ApiError.badRequest('Idempotency-Key is required');
+    const existing = await Payment.findOne({ idempotencyKey });
+    if (existing) return existing;
+    const payment = await this.fundMilestone(user, milestoneId, idempotencyKey);
+    const providerName = String(payment.provider || 'mock').toUpperCase();
+    if (outcome === 'failed') { payment.status = PAYMENT_STATUS.FAILED; payment.failureReason = 'Simulated payment failure'; await payment.save(); return payment; }
+    payment.status = PAYMENT_STATUS.SUCCEEDED; payment.escrowStatus = ESCROW_STATUS.FUNDED; payment.paidAt = new Date(); await payment.save();
+    await Milestone.updateOne({ _id: payment.milestone }, { $set: { status: MILESTONE_STATUS.FUNDED, paymentState: 'funded' } });
+    await PaymentTransaction.create({ transactionNumber: number('TH-TXN'), user: payment.client, amount: payment.amount, currency: payment.currency, provider: simulatedProvider, providerTransactionId: payment.providerPaymentId || number('SIM'), type: 'client_payment', status: 'success', metadata: { payment: payment._id, contract: payment.contract, milestone: payment.milestone }, completedAt: new Date() });
+    return payment;
+  },
   async list(user) { return Payment.find({ $or: [{ client: user._id }, { freelancer: user._id }] }).sort({ createdAt: -1 }); },
   getOne: accessPayment,
   async webhook(providerName, event) {
@@ -57,6 +71,7 @@ export const paymentService = {
     const prior = await Transaction.findOne({ payment: p._id, type: 'escrow_release' }); if (prior) return prior;
     const w = await wallet(p.freelancer); const before = w.pendingBalance; w.pendingBalance += p.freelancerAmount; w.totalEarned += p.freelancerAmount; await w.save();
     const tx = await Transaction.create({ transactionNumber: number('TXN'), user: p.freelancer, payment: p._id, project: p.project, contract: p.contract, milestone: p.milestone, type: 'escrow_release', direction: 'credit', amount: p.freelancerAmount, amountMinor: cents(p.freelancerAmount), currency: p.currency, balanceBefore: before, balanceAfter: w.pendingBalance, description: 'Milestone earnings pending release' });
+    await virtualCardService.creditEarning(p.freelancer, p.freelancerAmount, p._id, { project: p.project, contract: p.contract, milestone: p.milestone });
     p.escrowStatus = ESCROW_STATUS.RELEASED; await p.save(); m.paymentState = 'paid'; m.status = MILESTONE_STATUS.PAID; await m.save(); return tx;
   },
   async getWallet(user) { return wallet(user._id); },

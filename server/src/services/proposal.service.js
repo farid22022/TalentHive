@@ -10,6 +10,7 @@ import {
   PROPOSAL_STATUS,
   ROLES,
 } from '../config/constants.js';
+import { developerEligibility } from './virtualCard.service.js';
 
 // Fields a freelancer may set on submit/revise.
 const WRITABLE = ['coverLetter', 'bid', 'estimatedDays', 'milestones', 'aiAssisted'];
@@ -90,6 +91,11 @@ export const proposalService = {
     }
     if (job.status !== JOB_STATUS.OPEN) {
       throw ApiError.badRequest('This job is not accepting proposals');
+    }
+
+    const eligibility = await developerEligibility(user);
+    if (!eligibility.canApplyForJobs) {
+      throw new ApiError(403, 'Activate your virtual card before applying for jobs.', 'CARD_ACTIVATION_REQUIRED', { amountRequired: eligibility.amountRequired || 0 });
     }
 
     const existing = await Proposal.findOne({ job: job._id, freelancer: user._id });

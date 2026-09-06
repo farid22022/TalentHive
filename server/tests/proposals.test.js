@@ -28,6 +28,9 @@ before(async () => {
     .post('/api/auth/register')
     .send({ name: 'Fred Lancer', email: 'fred@example.com', password: 'StrongPass1' });
   freelancerToken = f.body.data.accessToken;
+  await auth(request(app).post('/api/wallet/reload'), freelancerToken)
+    .set('Idempotency-Key', 'proposal-fixture-reload')
+    .send({ amount: 500, provider: 'BKASH_SIMULATED' });
 
   const t = await request(app)
     .post('/api/auth/register')

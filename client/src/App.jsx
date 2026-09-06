@@ -47,6 +47,8 @@ const ResolutionCenter = lazy(() => import('./pages/ResolutionCenter.jsx'));
 const Notifications = lazy(() => import('./pages/Notifications.jsx'));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard.jsx'));
 const Applicants = lazy(() => import('./pages/Applicants.jsx'));
+const MyOffers = lazy(() => import('./pages/MyOffers.jsx'));
+const VirtualCardPage = lazy(() => import('./pages/VirtualCardPage.jsx'));
 
 export default function App() {
   return (
@@ -107,6 +109,7 @@ export default function App() {
             <Route path="jobs/:id/apply" element={<SubmitProposal />} />
             <Route path="saved-jobs" element={<SavedJobs />} />
             <Route path="proposals" element={<MyProposals />} />
+            <Route path="offers" element={<ProtectedRoute roles={['freelancer']}><MyOffers /></ProtectedRoute>} />
             <Route path="proposals/received" element={<ProposalsReceived />} />
             <Route path="proposals/:id/edit" element={<SubmitProposal mode="edit" />} />
             <Route path="cv-analysis" element={<CvAnalysis />} />
@@ -129,6 +132,10 @@ export default function App() {
             <Route path="resolution-center" element={<ResolutionCenter />} />
             <Route path="notifications" element={<Notifications />} />
             <Route path="jobs/:jobId/matches" element={<CandidateMatches />} />
+            <Route path="card" element={<ProtectedRoute roles={['freelancer']}><VirtualCardPage /></ProtectedRoute>} />
+            <Route path="card/transactions" element={<ProtectedRoute roles={['freelancer']}><VirtualCardPage /></ProtectedRoute>} />
+            <Route path="developer/card" element={<ProtectedRoute roles={['freelancer']}><VirtualCardPage /></ProtectedRoute>} />
+            <Route path="developer/wallet" element={<ProtectedRoute roles={['freelancer']}><VirtualCardPage /></ProtectedRoute>} />
             <Route path="settings" element={<Settings />} />
           </Route>
 

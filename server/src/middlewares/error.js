@@ -21,7 +21,7 @@ export const errorHandler = (err, req, res, _next) => {
       const field = Object.keys(error.keyValue || {})[0] || 'field';
       error = new ApiError(409, `${field} already in use`, 'DUPLICATE');
     } else if (error?.name === 'CastError') {
-      error = new ApiError(400, 'Invalid identifier', 'BAD_REQUEST');
+      error = new ApiError(400, `Invalid identifier${error.path ? ` (${error.path})` : ''}`, 'BAD_REQUEST', config.isProd ? undefined : { path: error.path, value: String(error.value ?? '') });
     } else {
       error = new ApiError(500, config.isProd ? 'Internal server error' : String(err?.message || err), 'INTERNAL');
     }
