@@ -1,0 +1,10 @@
+import { z } from 'zod';
+const oid = z.string().regex(/^[a-f\d]{24}$/i, 'Invalid id');
+const categories = z.record(z.number().int().min(1).max(5)).optional().default({});
+export const contractParam = z.object({ params: z.object({ contractId: oid }) });
+export const reviewParam = z.object({ params: z.object({ id: oid }) });
+export const userParam = z.object({ params: z.object({ userId: oid }) });
+export const createReview = z.object({ body: z.object({ overallRating: z.number().int().min(1).max(5), categoryRatings: categories, title: z.string().trim().max(200).optional().default(''), comment: z.string().trim().min(10).max(5000), wouldHireAgain: z.boolean().optional() }) });
+export const replyBody = z.object({ body: z.object({ content: z.string().trim().min(3).max(2000) }) });
+export const reportBody = z.object({ body: z.object({ reason: z.enum(['spam', 'harassment', 'hate', 'personal_information', 'false_information', 'irrelevant', 'extortion', 'manipulation', 'other']), description: z.string().trim().max(2000).optional().default('') }) });
+export const listQuery = z.object({ query: z.object({ page: z.coerce.number().int().min(1).optional(), limit: z.coerce.number().int().min(1).max(50).optional(), sort: z.enum(['newest', 'highest', 'lowest']).optional() }) });

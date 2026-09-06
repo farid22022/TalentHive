@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AI_FEATURES, AI_LIMITS } from '../config/constants.js';
+import { AI_FEATURES, AI_LIMITS, PROPOSAL_LIMITS, PROPOSAL_TONE } from '../config/constants.js';
 
 export const analyzeCvSchema = z.object({
   body: z.object({
@@ -18,4 +18,13 @@ export const listAnalysesSchema = z.object({
 
 export const analysisIdParam = z.object({
   params: z.object({ id: z.string().regex(/^[a-f\d]{24}$/i, 'Invalid id') }),
+});
+
+// Cover-letter assistant (Phase 6). Output is a draft only — it never creates a proposal.
+export const draftProposalSchema = z.object({
+  body: z.object({
+    job: z.string().regex(/^[a-f\d]{24}$/i, 'Invalid id'),
+    tone: z.enum(Object.values(PROPOSAL_TONE)).optional(),
+    notes: z.string().trim().max(PROPOSAL_LIMITS.AI_NOTES_MAX).optional(),
+  }),
 });

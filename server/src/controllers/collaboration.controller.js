@@ -1,0 +1,4 @@
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { ok } from '../utils/ApiResponse.js';
+import { collaborationService as s } from '../services/collaboration.service.js';
+export const collaborationController = { add: asyncHandler(async (q, r) => ok(r, { participant: await s.addParticipant(q.user, q.params.id, q.body.userId) })), thread: asyncHandler(async (q, r) => ok(r, { thread: await s.thread(q.user, q.params.messageId) })), save: asyncHandler(async (q, r) => ok(r, { saved: await s.save(q.user, q.params.messageId) })), unsave: asyncHandler(async (q, r) => ok(r, await s.unsave(q.user, q.params.messageId))), saved: asyncHandler(async (q, r) => ok(r, { messages: await s.saved(q.user) })), pinned: asyncHandler(async (q, r) => ok(r, { messages: await s.pinned(q.user, q.params.id) })) };

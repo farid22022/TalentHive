@@ -29,6 +29,7 @@ router.delete('/:id/save', requireAuth, validate(jobIdParam), jobController.unsa
 // Owner-only mutations.
 router.patch('/:id', requireAuth, validate(updateJobSchema), jobController.update);
 router.delete('/:id', requireAuth, validate(jobIdParam), jobController.remove);
+router.get('/:id/applicants', requireAuth, validate(jobIdParam), jobController.applicants);
 
 // Single job — optionalAuth so owners can view their own draft/closed jobs.
 router.get('/:id', optionalAuth, validate(jobIdParam), jobController.getOne);

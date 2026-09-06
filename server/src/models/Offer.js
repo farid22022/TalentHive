@@ -1,0 +1,9 @@
+import mongoose from 'mongoose';
+import { BUDGET_TYPE, OFFER_STATUS, PHASE8_LIMITS } from '../config/constants.js';
+const { Schema } = mongoose;
+const milestone = new Schema({ title: { type: String, required: true, trim: true, maxlength: PHASE8_LIMITS.TITLE_MAX }, description: { type: String, trim: true, maxlength: PHASE8_LIMITS.DESCRIPTION_MAX, default: '' }, amount: { type: Number, min: 0, default: 0 }, dueDate: Date }, { _id: false });
+const schema = new Schema({ client: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true }, freelancer: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true }, job: { type: Schema.Types.ObjectId, ref: 'Job', required: true, index: true }, proposal: { type: Schema.Types.ObjectId, ref: 'Proposal', required: true, index: true }, contractType: { type: String, enum: Object.values(BUDGET_TYPE), required: true }, title: { type: String, required: true, trim: true, maxlength: PHASE8_LIMITS.TITLE_MAX }, description: { type: String, required: true, trim: true, maxlength: PHASE8_LIMITS.DESCRIPTION_MAX }, rate: { type: Number, min: 0, default: 0 }, totalBudget: { type: Number, min: 0, default: 0 }, estimatedHours: { type: Number, min: 0, default: 0 }, startDate: Date, endDate: Date, terms: { type: String, trim: true, maxlength: PHASE8_LIMITS.TERMS_MAX, default: '' }, milestones: { type: [milestone], default: [] }, status: { type: String, enum: Object.values(OFFER_STATUS), default: OFFER_STATUS.DRAFT, index: true }, expiresAt: { type: Date, index: true }, changeRequest: { type: String, trim: true, maxlength: PHASE8_LIMITS.FEEDBACK_MAX, default: '' }, acceptedAt: Date, rejectedAt: Date }, { timestamps: true });
+schema.index({ client: 1, createdAt: -1 });
+schema.index({ freelancer: 1, status: 1, createdAt: -1 });
+schema.set('toJSON', { virtuals: true, transform: (_d, r) => { delete r.__v; return r; } });
+export const Offer = mongoose.model('Offer', schema);

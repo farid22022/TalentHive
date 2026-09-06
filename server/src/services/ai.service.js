@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { AIAnalysis } from '../models/AIAnalysis.js';
 import { AIUsage } from '../models/AIUsage.js';
 import { FreelancerProfile } from '../models/FreelancerProfile.js';
+import { Job } from '../models/Job.js';
 import { getAIProvider } from '../integrations/ai/index.js';
 import { storage } from '../integrations/storage/index.js';
 import { extractText, sha256, wordCount } from '../utils/text.js';
@@ -12,7 +13,11 @@ import {
   AI_LIMITS,
   AI_PRICING,
   ANALYSIS_STATUS,
+  BUDGET_TYPE,
+  JOB_STATUS,
   PROFILE_LIMITS,
+  PROPOSAL_LIMITS,
+  PROPOSAL_TONE,
   SENIORITY,
 } from '../config/constants.js';
 import fs from 'node:fs';
@@ -20,6 +25,10 @@ import fs from 'node:fs';
 const DISCLAIMER =
   'This AI analysis is advisory only. It assesses CV content and presentation — it is not identity ' +
   'verification and does not confirm the accuracy of any claim. Use it to improve your profile, not as proof of credentials.';
+
+const PROPOSAL_DISCLAIMER =
+  'This is an AI-generated draft, not a finished proposal. Review every claim before sending — you are ' +
+  'responsible for what you submit. Edit it to sound like you, and never state experience you do not have.';
 
 // Skill dictionary for deterministic detection (mock/fallback). Original, generic list.
 const SKILL_DICTIONARY = [
@@ -167,7 +176,7 @@ function estimateCost(model, inTok, outTok) {
 }
 
 /** Call the provider for JSON, with one retry, and parse the content. Returns null on failure. */
-async function chatJSON(provider, messages) {
+async function chatJSON(provider, messages, schema = resultSchema) {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const res = await provider.chat({ messages, json: true });
@@ -178,7 +187,7 @@ async function chatJSON(provider, messages) {
         const m = res.content.match(/\{[\s\S]*\}/);
         parsed = m ? JSON.parse(m[0]) : null;
       }
-      const valid = parsed && resultSchema.safeParse(parsed);
+      const valid = parsed && schema.safeParse(parsed);
       if (valid?.success) return { result: valid.data, usage: res.usage, model: res.model };
       logger.warn('AI JSON validation failed; retrying/falling back');
     } catch (err) {
@@ -200,6 +209,146 @@ async function readStoredCvText(profile) {
   throw ApiError.badRequest(
     'Could not read text from your uploaded CV (it may be an image-only or compressed PDF). Paste your CV text to analyze it.'
   );
+}
+
+// --- Proposal cover-letter assistant (Phase 6) ---
+
+// Rough day estimates per engagement length, used to prefill "estimated days".
+const DURATION_DAYS = { short: 21, medium: 60, long: 120 };
+
+/** Suggest a bid inside the job's advertised budget, nudged by the freelancer's own rate. */
+function suggestBid(job, profile) {
+  const b = job.budget || {};
+  const type = b.type || BUDGET_TYPE.FIXED;
+  const min = Number(b.min) || 0;
+  const max = Number(b.max) || 0;
+  const mid = min && max ? (min + max) / 2 : max || min;
+
+  let amount = mid;
+  if (type === BUDGET_TYPE.HOURLY) {
+    amount = Number(profile?.hourlyRate) || mid;
+    if (min && amount < min) amount = min;
+    if (max && amount > max) amount = max;
+  }
+  return {
+    amount: Math.min(PROPOSAL_LIMITS.BID_MAX, Math.round((amount || 0) * 100) / 100),
+    type,
+    currency: b.currency || 'USD',
+  };
+}
+
+/** Skill overlap between a job and a profile, preserving the job's original casing. */
+function skillOverlap(job, profile) {
+  const mine = new Set((profile?.skills || []).map((s) => s.toLowerCase()));
+  const jobSkills = (job.skills || []).map(String);
+  return {
+    matchedSkills: jobSkills.filter((s) => mine.has(s.toLowerCase())),
+    missingSkills: jobSkills.filter((s) => !mine.has(s.toLowerCase())),
+  };
+}
+
+/** Concrete, checkable talking points drawn from the profile — never invented credentials. */
+function buildTalkingPoints({ profile, matchedSkills, notes }) {
+  const points = [];
+  if (matchedSkills.length) points.push(`Name where you used ${matchedSkills.slice(0, 4).join(', ')} on a shipped project.`);
+  const recent = (profile?.experience || [])[0];
+  if (recent?.title) {
+    points.push(`Reference your ${recent.title}${recent.company ? ` role at ${recent.company}` : ''} as proof of scope.`);
+  }
+  if ((profile?.portfolio || []).length) points.push('Link the one portfolio piece closest to this brief.');
+  if (notes) points.push(`Work in the detail you flagged: "${notes.slice(0, 120)}".`);
+  points.push('Close with a specific next step — a question about scope or a call time.');
+  return points.slice(0, 6);
+}
+
+const TONE_OPENERS = {
+  [PROPOSAL_TONE.PROFESSIONAL]: (title) =>
+    `Hello,\n\nI read your posting for "${title}" in full, and it maps closely onto the work I do.`,
+  [PROPOSAL_TONE.FRIENDLY]: (title) =>
+    `Hi there!\n\nYour "${title}" post caught my eye — it is exactly the kind of project I enjoy taking on.`,
+  [PROPOSAL_TONE.CONCISE]: (title) => `Hello,\n\nRe: ${title}. Short version — I can take this on and deliver it cleanly.`,
+};
+
+/**
+ * Deterministic, offline cover-letter draft. Used for the mock provider and as the fallback when a
+ * real provider misbehaves. Written from profile facts only so it never invents credentials.
+ */
+function heuristicProposalDraft({ job, profile, tone, notes, days, matchedSkills }) {
+  const headline = profile?.title ? `As ${profile.title.replace(/^a\s+/i, '')}, ` : '';
+  const skillLine = matchedSkills.length
+    ? `${headline}I work directly with ${matchedSkills.join(', ')}, which is the core of what you described.`
+    : `${headline}my background lines up with the outcome you described, and I can show comparable work on request.`;
+
+  const opener = TONE_OPENERS[tone] || TONE_OPENERS[PROPOSAL_TONE.PROFESSIONAL];
+  const paragraphs = [opener(job.title), skillLine];
+
+  if (tone !== PROPOSAL_TONE.CONCISE) {
+    paragraphs.push(
+      'How I would approach it: start with a short scoping pass so we agree on the details, then deliver in ' +
+        'reviewable increments so you can steer early rather than at the end. You get a working version to look at ' +
+        'well before the final handover.'
+    );
+    if ((profile?.portfolio || []).length || (profile?.experience || []).length) {
+      paragraphs.push('I am happy to walk you through the most comparable piece of past work so you can judge the fit yourself.');
+    }
+  }
+
+  if (notes) paragraphs.push(`A note on your requirements: ${notes.trim()}`);
+
+  paragraphs.push(
+    `I can start right away and would plan for roughly ${days} day(s) of delivery time. ` +
+      'If that fits, tell me which detail matters most to you and I will confirm the plan against it.\n\nThank you for your time.'
+  );
+
+  return paragraphs.join('\n\n').slice(0, PROPOSAL_LIMITS.COVER_LETTER_MAX);
+}
+
+// Real-provider JSON is validated before it is trusted; anything else falls back to the heuristic.
+const draftSchema = z.object({
+  coverLetter: z.string().min(1),
+  suggestedBid: z.coerce.number().optional(),
+  talkingPoints: z.array(z.string()).default([]),
+});
+
+function buildProposalPrompt({ job, profile, tone, notes, days }) {
+  const system =
+    'You are helping a freelancer draft a cover letter for a job on a freelance marketplace. Respond with ' +
+    'STRICT JSON only: {coverLetter:string, suggestedBid:number, talkingPoints:string[]}. Rules: write in the ' +
+    "freelancer's own first person; use ONLY the facts given about them and never invent employers, credentials, " +
+    'certifications, or client names; no placeholders like [Your Name]; do not restate the job description back ' +
+    `at the client; keep the letter under ${PROPOSAL_LIMITS.COVER_LETTER_MAX} characters. Tone: ${tone}.`;
+
+  const jobFacts = [
+    `Title: ${job.title}`,
+    `Category: ${job.category || 'n/a'}`,
+    `Required skills: ${(job.skills || []).join(', ') || 'n/a'}`,
+    `Experience level: ${job.experienceLevel || 'n/a'}`,
+    `Budget: ${job.budget?.type || 'fixed'} ${job.budget?.min ?? '?'}–${job.budget?.max ?? '?'} ${job.budget?.currency || 'USD'}`,
+    `Expected duration: ${job.duration || 'n/a'} (~${days} days)`,
+    `Description: ${(job.description || '').slice(0, 4000)}`,
+  ].join('\n');
+
+  const profileFacts = [
+    `Headline: ${profile?.title || 'n/a'}`,
+    `Overview: ${(profile?.overview || 'n/a').slice(0, 1200)}`,
+    `Skills: ${(profile?.skills || []).join(', ') || 'n/a'}`,
+    `Hourly rate: ${profile?.hourlyRate || 0}`,
+    `Recent roles: ${(profile?.experience || [])
+      .slice(0, 3)
+      .map((e) => `${e.title || ''}${e.company ? ` @ ${e.company}` : ''}`)
+      .filter(Boolean)
+      .join('; ') || 'n/a'}`,
+    `Portfolio pieces: ${(profile?.portfolio || []).length}`,
+  ].join('\n');
+
+  const user =
+    `JOB:\n"""\n${jobFacts}\n"""\n\nFREELANCER (the only facts you may assert):\n"""\n${profileFacts}\n"""` +
+    (notes ? `\n\nEXTRA NOTES FROM THE FREELANCER (weave these in):\n"""\n${notes}\n"""` : '');
+
+  return [
+    { role: 'system', content: system },
+    { role: 'user', content: user },
+  ];
 }
 
 export const aiService = {
@@ -322,5 +471,74 @@ export const aiService = {
     profile.skills = [...(profile.skills || []), ...additions].slice(0, PROFILE_LIMITS.SKILLS_MAX);
     await profile.save();
     return { profile, added: additions };
+  },
+
+  /**
+   * Draft a cover letter for a job (Phase 6). Advisory output only: nothing is persisted as an
+   * analysis and no proposal is created — the freelancer edits and submits it themselves.
+   */
+  async assistProposal(user, { job: jobId, tone = PROPOSAL_TONE.PROFESSIONAL, notes = '' } = {}) {
+    const job = await Job.findById(jobId).select(
+      'title description category skills budget experienceLevel duration status client'
+    );
+    if (!job) throw ApiError.notFound('Job not found');
+    if (String(job.client) === String(user._id)) {
+      throw ApiError.badRequest('You cannot draft a proposal for your own job');
+    }
+    if (job.status !== JOB_STATUS.OPEN) throw ApiError.badRequest('This job is not accepting proposals');
+
+    const profile = await FreelancerProfile.findOne({ user: user._id });
+    const { matchedSkills, missingSkills } = skillOverlap(job, profile);
+    const days = DURATION_DAYS[job.duration] || DURATION_DAYS.medium;
+    const bid = suggestBid(job, profile);
+
+    const provider = getAIProvider();
+    let usage = { inputTokens: 0, outputTokens: 0 };
+    let model = provider.model;
+    let coverLetter;
+    let talkingPoints = buildTalkingPoints({ profile, matchedSkills, notes });
+
+    if (provider.name === 'mock') {
+      coverLetter = heuristicProposalDraft({ job, profile, tone, notes, days, matchedSkills });
+    } else {
+      const out = await chatJSON(provider, buildProposalPrompt({ job, profile, tone, notes, days }), draftSchema);
+      if (out) {
+        coverLetter = out.result.coverLetter.slice(0, PROPOSAL_LIMITS.COVER_LETTER_MAX);
+        if (out.result.talkingPoints?.length) talkingPoints = out.result.talkingPoints.slice(0, 6);
+        // Trust the model's number only when it lands inside the advertised budget.
+        const suggested = Number(out.result.suggestedBid);
+        const withinBudget =
+          suggested > 0 && (!job.budget?.min || suggested >= job.budget.min) && (!job.budget?.max || suggested <= job.budget.max);
+        if (withinBudget) bid.amount = Math.round(suggested * 100) / 100;
+        usage = out.usage || usage;
+        model = out.model || model;
+      } else {
+        coverLetter = heuristicProposalDraft({ job, profile, tone, notes, days, matchedSkills });
+      }
+    }
+
+    await AIUsage.create({
+      user: user._id,
+      feature: AI_FEATURES.PROPOSAL_DRAFT,
+      provider: provider.name,
+      model,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      estimatedCost: estimateCost(model, usage.inputTokens, usage.outputTokens),
+      cached: false,
+    });
+
+    return {
+      coverLetter,
+      suggestedBid: bid,
+      suggestedDays: days,
+      talkingPoints,
+      matchedSkills,
+      missingSkills,
+      tone,
+      provider: provider.name,
+      model,
+      disclaimer: PROPOSAL_DISCLAIMER,
+    };
   },
 };

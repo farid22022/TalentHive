@@ -2,15 +2,15 @@ import mongoose from 'mongoose';
 import { connectDB, disconnectDB } from '../config/db.js';
 import { logger } from '../config/logger.js';
 import { seedCoreAccounts } from './seedData.js';
+import { seedDemoData } from './seedDemo.js';
 
 /**
- * Phase 1 seed: development admin + sample client/freelancer accounts.
- * Expanded to full fictional dataset (30 freelancers, 15 clients, jobs, etc.)
- * as those models come online in later phases.
+ * Development seed: demo accounts plus the fictional marketplace dataset
+ * used by the UI in local/dev environments.
  *
  * NOTE: this runs as its own process. When MONGODB_URI is unreachable and the
- * dev server falls back to in-memory MongoDB, this script seeds a *separate*
- * in-memory instance — the running server won't see it. For that case, the
+ * dev server falls back to in-memory MongoDB, this script seeds a separate
+ * in-memory instance, so the running server will not see it. For that case, the
  * server auto-seeds on startup (see server.js). Point MONGODB_URI at a reachable
  * database to share seeded data across processes.
  */
@@ -19,8 +19,13 @@ async function seed() {
   logger.info('Seeding development data...');
 
   const created = await seedCoreAccounts();
-  logger.info(`Seed complete: ${created} account(s) created (existing accounts untouched).`);
-  logger.warn('DEV ONLY — default passwords. Never use these in production.');
+  const demoCounts = await seedDemoData();
+  logger.info(
+    `Seed complete: ${created} core account(s) created; ` +
+      `${demoCounts.users} user records touched, ${demoCounts.profiles} profiles, ` +
+      `${demoCounts.jobs} jobs, ${demoCounts.proposals} proposals.`
+  );
+  logger.warn('DEV ONLY - default passwords. Never use these in production.');
 
   await disconnectDB();
   await mongoose.disconnect().catch(() => {});

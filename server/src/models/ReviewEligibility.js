@@ -1,0 +1,4 @@
+import mongoose from 'mongoose';
+const { Schema } = mongoose;
+const schema = new Schema({ contract: { type: Schema.Types.ObjectId, ref: 'Contract', required: true, unique: true, index: true }, project: { type: Schema.Types.ObjectId, ref: 'Project', required: true }, client: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true }, freelancer: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true }, clientEligible: { type: Boolean, default: true }, freelancerEligible: { type: Boolean, default: true }, clientSubmitted: { type: Boolean, default: false }, freelancerSubmitted: { type: Boolean, default: false }, eligibleAt: { type: Date, default: Date.now }, deadline: { type: Date, required: true }, status: { type: String, enum: ['pending', 'partial', 'completed', 'expired', 'locked'], default: 'pending', index: true } }, { timestamps: true });
+export const ReviewEligibility = mongoose.model('ReviewEligibility', schema);

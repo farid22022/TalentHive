@@ -6,19 +6,23 @@ import { config } from './config/index.js';
 import { logger } from './config/logger.js';
 import { registerSocketHandlers } from './sockets/index.js';
 import { seedCoreAccounts } from './jobs/seedData.js';
+import { seedDemoData } from './jobs/seedDemo.js';
 
 async function start() {
   await connectDB();
 
-  // In dev, ensure the demo accounts exist on the *running* server. The `npm run seed`
-  // script uses its own process (and, when falling back, its own in-memory DB), so its
-  // data never reaches this server. Auto-seeding here guarantees you can always log in
-  // with the demo credentials. Idempotent; skipped in prod and when AUTO_SEED=false.
+  // In dev, ensure the demo accounts and marketplace data exist on the running server.
+  // The `npm run seed` script uses its own process (and, when falling back, its own
+  // in-memory DB), so its data never reaches this server. Auto-seeding here guarantees
+  // the UI has realistic data to browse. Idempotent; skipped in prod and when AUTO_SEED=false.
   if (!config.isProd && process.env.AUTO_SEED !== 'false') {
     try {
       const created = await seedCoreAccounts();
+      const demoCounts = await seedDemoData();
       logger.info(
-        `Dev auto-seed: ${created} account(s) created${isMemoryServer() ? ' (in-memory DB)' : ''}. ` +
+        `Dev auto-seed: ${created} core account(s) created; ${demoCounts.jobs} job(s), ` +
+          `${demoCounts.proposals} proposal(s), ${demoCounts.profiles} profile(s) ` +
+          `seeded${isMemoryServer() ? ' (in-memory DB)' : ''}. ` +
           `Login with ${config.seed.adminEmail} / ${config.seed.adminPassword}`
       );
     } catch (err) {
@@ -41,7 +45,8 @@ async function start() {
 
   const shutdown = async (signal) => {
     logger.info(`${signal} received — shutting down`);
-    server.close();
+    io.close();
+    await new Promise((resolve) => server.close(resolve));
     await disconnectDB();
     process.exit(0);
   };

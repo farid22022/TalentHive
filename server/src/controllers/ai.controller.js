@@ -36,4 +36,9 @@ export const aiController = {
     const { profile, added } = await aiService.applySuggestedSkills(req.user, req.params.id);
     return ok(res, { profile: profile.toJSON(), added }, 'Skills added to profile');
   }),
+
+  draftProposal: asyncHandler(async (req, res) => {
+    const draft = await aiService.assistProposal(req.user, req.body);
+    return ok(res, { draft }, 'Draft ready');
+  }),
 };

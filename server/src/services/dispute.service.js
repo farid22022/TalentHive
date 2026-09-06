@@ -1,0 +1,15 @@
+import { Dispute } from '../models/Dispute.js';
+import { DisputeEvidence } from '../models/DisputeEvidence.js';
+import { DisputeResolution } from '../models/DisputeResolution.js';
+import { Contract } from '../models/Contract.js';
+import { ApiError } from '../utils/ApiError.js';
+const uid = (u) => u._id || u.id;
+const access = async (user, id) => { const d = await Dispute.findById(id); if (!d) throw ApiError.notFound('Dispute not found'); const admin = user.role === 'admin' || user.roles?.includes('admin'); if (!admin && ![String(d.client), String(d.freelancer)].includes(String(uid(user)))) throw ApiError.forbidden('You cannot access this dispute'); return d; };
+export const disputeService = {
+  list: async (u) => { const admin = u.role === 'admin' || u.roles?.includes('admin'); const q = admin ? {} : { $or: [{ client: uid(u) }, { freelancer: uid(u) }] }; return Dispute.find(q).sort({ createdAt: -1 }).limit(100); },
+  create: async (u, body) => { const c = await Contract.findById(body.contract); if (!c) throw ApiError.notFound('Contract not found'); if (![String(c.client), String(c.freelancer)].includes(String(uid(u)))) throw ApiError.forbidden('Only contract participants can open a dispute'); const existing = await Dispute.findOne({ contract: c._id, status: { $nin: ['closed', 'cancelled'] }, initiatedBy: uid(u), type: body.type }); if (existing) throw ApiError.conflict('A similar dispute is already open'); const now = new Date(); const d = await Dispute.create({ ...body, contract: c._id, client: c.client, freelancer: c.freelancer, initiatedBy: uid(u), respondent: String(c.client) === String(uid(u)) ? c.freelancer : c.client, disputeNumber: `DSP-${now.getUTCFullYear()}-${String(Date.now()).slice(-6)}`, status: 'open', deadline: new Date(now.getTime() + 7 * 86400000) }); return d; },
+  get: async (u, id) => { const d = await access(u, id); return { dispute: d, evidence: await DisputeEvidence.find({ dispute: d._id }).sort({ createdAt: 1 }), resolution: await DisputeResolution.findOne({ dispute: d._id }) }; },
+  evidence: async (u, id, body) => { const d = await access(u, id); if (d.status === 'closed' || d.status === 'cancelled') throw ApiError.conflict('Closed disputes cannot accept evidence'); return DisputeEvidence.create({ ...body, dispute: d._id, submittedBy: uid(u) }); },
+  respond: async (u, id, body) => { const d = await access(u, id); if (String(d.initiatedBy) === String(uid(u))) throw ApiError.forbidden('Use evidence to add a response'); d.status = 'under_review'; await d.save(); return d; },
+  resolve: async (u, id, body) => { if (!(u.role === 'admin' || u.roles?.includes('admin'))) throw ApiError.forbidden('Only administrators can resolve disputes'); const d = await Dispute.findById(id); if (!d) throw ApiError.notFound('Dispute not found'); const r = await DisputeResolution.create({ ...body, dispute: d._id, resolvedBy: uid(u), currency: d.currency }); d.resolution = r._id; d.status = 'resolved'; d.resolvedAt = new Date(); await d.save(); return r; },
+};

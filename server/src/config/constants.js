@@ -66,6 +66,11 @@ export const PROFILE_LIMITS = Object.freeze({
 
 export const AI_FEATURES = Object.freeze({
   CV_ANALYSIS: 'cv_analysis',
+  PROPOSAL_DRAFT: 'proposal_draft', // Phase 6 — cover-letter assistant
+  JOB_ANALYSIS: 'job_analysis',
+  CANDIDATE_MATCH: 'candidate_match',
+  PROPOSAL_ANALYSIS: 'proposal_analysis',
+  PROFILE_ANALYSIS: 'profile_analysis',
 });
 
 export const SENIORITY = Object.freeze({
@@ -163,4 +168,70 @@ export const JOB_LIMITS = Object.freeze({
   DESCRIPTION_MAX: 10000,
   SKILLS_MAX: 20,
   BUDGET_MAX: 10000000,
+});
+
+// --- Proposals domain (Phase 6) ---
+
+// Proposal lifecycle. `accepted` is written by hiring (Phase 8), never by a Phase 6 endpoint.
+export const PROPOSAL_STATUS = Object.freeze({
+  SUBMITTED: 'submitted',
+  SHORTLISTED: 'shortlisted',
+  REJECTED: 'rejected',
+  WITHDRAWN: 'withdrawn',
+  ACCEPTED: 'accepted',
+});
+
+// Statuses that still count toward a job's proposalsCount and stay editable by their author.
+export const ACTIVE_PROPOSAL_STATUSES = Object.freeze([
+  PROPOSAL_STATUS.SUBMITTED,
+  PROPOSAL_STATUS.SHORTLISTED,
+]);
+
+// Review actions a job owner may take in Phase 6 (hiring/accept lands in Phase 8).
+export const PROPOSAL_DECISION = Object.freeze({
+  SHORTLIST: 'shortlist',
+  REJECT: 'reject',
+  RECONSIDER: 'reconsider', // move a shortlisted/rejected proposal back to submitted
+});
+
+export const PROPOSAL_LIMITS = Object.freeze({
+  COVER_LETTER_MIN: 50,
+  COVER_LETTER_MAX: 5000,
+  MILESTONES_MAX: 20,
+  MILESTONE_TITLE_MAX: 150,
+  MILESTONE_DESC_MAX: 1000,
+  REVIEW_NOTE_MAX: 1000,
+  BID_MAX: 10000000,
+  DAYS_MAX: 3650,
+  AI_NOTES_MAX: 1000,
+});
+
+export const MESSAGE_LIMITS = Object.freeze({
+  TEXT_MAX: 4000,
+  PAGE_LIMIT: 30,
+});
+
+// Hiring and project-management lifecycle values.
+export const OFFER_STATUS = Object.freeze({ DRAFT: 'draft', SENT: 'sent', VIEWED: 'viewed', CHANGES_REQUESTED: 'changes_requested', ACCEPTED: 'accepted', REJECTED: 'rejected', WITHDRAWN: 'withdrawn', EXPIRED: 'expired' });
+export const CONTRACT_STATUS = Object.freeze({ DRAFT: 'draft', ACTIVE: 'active', PAUSED: 'paused', ENDED: 'ended', COMPLETED: 'completed', CANCELLED: 'cancelled', DISPUTED: 'disputed', SUSPENDED: 'suspended' });
+export const TIME_ENTRY_SOURCE = Object.freeze({ TIMER: 'timer', MANUAL: 'manual', IMPORTED: 'imported', DESKTOP_TRACKER: 'desktop_tracker' });
+export const TIME_ENTRY_STATUS = Object.freeze({ COMPLETED: 'completed', SUBMITTED: 'submitted', APPROVED: 'approved', DISPUTED: 'disputed', REJECTED: 'rejected', DELETED: 'deleted' });
+export const HOURLY_INVOICE_STATUS = Object.freeze({ DRAFT: 'draft', GENERATED: 'generated', SUBMITTED: 'submitted', IN_REVIEW: 'in_review', APPROVED: 'approved', PAYMENT_PENDING: 'payment_pending', PAID: 'paid', FAILED: 'failed', DISPUTED: 'disputed', VOID: 'void' });
+export const PROJECT_STATUS = Object.freeze({ NOT_STARTED: 'not_started', IN_PROGRESS: 'in_progress', REVIEW: 'review', REVISION: 'revision', COMPLETED: 'completed', CANCELLED: 'cancelled' });
+export const MILESTONE_STATUS = Object.freeze({ PENDING: 'pending', FUNDING_PENDING: 'funding_pending', FUNDED: 'funded', IN_PROGRESS: 'in_progress', SUBMITTED: 'submitted', REVISION_REQUESTED: 'revision_requested', APPROVED: 'approved', PAID: 'paid', DISPUTED: 'disputed', CANCELLED: 'cancelled' });
+export const SUBMISSION_STATUS = Object.freeze({ SUBMITTED: 'submitted', UNDER_REVIEW: 'under_review', REVISION_REQUESTED: 'revision_requested', APPROVED: 'approved', REJECTED: 'rejected' });
+export const PHASE8_LIMITS = Object.freeze({ TITLE_MAX: 200, DESCRIPTION_MAX: 20000, TERMS_MAX: 10000, MILESTONES_MAX: 50, LINKS_MAX: 20, FEEDBACK_MAX: 5000 });
+export const PAYMENT_STATUS = Object.freeze({ CREATED: 'created', CHECKOUT_CREATED: 'checkout_created', PROCESSING: 'processing', SUCCEEDED: 'succeeded', FAILED: 'failed', CANCELLED: 'cancelled', REFUND_PENDING: 'refund_pending', REFUNDED: 'refunded', PARTIALLY_REFUNDED: 'partially_refunded', DISPUTED: 'disputed' });
+export const ESCROW_STATUS = Object.freeze({ NOT_FUNDED: 'not_funded', FUNDING_PENDING: 'funding_pending', FUNDED: 'funded', RELEASE_PENDING: 'release_pending', RELEASED: 'released', REFUND_PENDING: 'refund_pending', REFUNDED: 'refunded', DISPUTED: 'disputed' });
+export const REVIEW_CATEGORIES = Object.freeze({ freelancer: ['quality', 'communication', 'timeliness', 'professionalism'], client: ['communication', 'clarity', 'professionalism', 'cooperation'] });
+export const REVIEW_STATUS = Object.freeze({ DRAFT: 'draft', PENDING: 'pending', PUBLISHED: 'published', HIDDEN: 'hidden', REMOVED: 'removed', FLAGGED: 'flagged' });
+export const AGENCY_STATUS = Object.freeze({ ACTIVE: 'active', PAUSED: 'paused', SUSPENDED: 'suspended', CLOSED: 'closed' });
+export const AGENCY_VISIBILITY = Object.freeze({ PUBLIC: 'public', PRIVATE: 'private', UNLISTED: 'unlisted' });
+export const AGENCY_ROLES = Object.freeze({ OWNER: 'owner', ADMIN: 'admin', MANAGER: 'manager', MEMBER: 'member' });
+
+// Cover-letter tones offered by the AI assistant.
+export const PROPOSAL_TONE = Object.freeze({
+  PROFESSIONAL: 'professional',
+  FRIENDLY: 'friendly',
+  CONCISE: 'concise',
 });

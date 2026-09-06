@@ -1,0 +1,13 @@
+import { Router } from 'express';
+import { requireAuth } from '../middlewares/auth.js';
+import { validate } from '../middlewares/validate.js';
+import { paymentController as c } from '../controllers/payment.controller.js';
+import { milestoneParam, paymentParam, withdraw } from '../validators/payment.validators.js';
+const router = Router();
+router.post('/webhook', c.webhook);
+router.use(requireAuth);
+router.post('/milestones/:milestoneId/fund', validate(milestoneParam), c.fund);
+router.post('/milestones/:milestoneId/release', validate(milestoneParam), c.release);
+router.get('/payments', c.list); router.get('/payments/:id', validate(paymentParam), c.get);
+router.get('/wallet', c.wallet); router.get('/wallet/transactions', c.transactions); router.post('/wallet/withdraw', validate(withdraw), c.withdraw);
+export default router;

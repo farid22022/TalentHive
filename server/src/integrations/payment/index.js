@@ -3,7 +3,7 @@ import { logger } from '../../config/logger.js';
 
 /**
  * PaymentProvider interface. Dev default = MockPaymentProvider (instant success, no charge).
- * StripeProvider / PayPalProvider wired in Phase 9.
+ * Provider-specific implementations remain behind this interface.
  */
 class MockPaymentProvider {
   constructor() {
@@ -21,6 +21,7 @@ class MockPaymentProvider {
   async payout({ amount, destination }) {
     return { id: `po_mock_${Date.now()}`, amount, destination, status: 'paid', mocked: true };
   }
+  async createCheckoutSession({ intentId, returnUrl, cancelUrl }) { return { id: `cs_mock_${Date.now()}`, intentId, url: returnUrl || cancelUrl || null, mocked: true }; }
   async webhook() {
     return { received: true, mocked: true };
   }

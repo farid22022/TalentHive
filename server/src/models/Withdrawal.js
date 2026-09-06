@@ -1,0 +1,4 @@
+import mongoose from 'mongoose';
+const { Schema } = mongoose;
+const schema = new Schema({ withdrawalNumber: { type: String, unique: true, index: true }, freelancer: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true }, amount: { type: Number, min: 0, required: true }, amountMinor: { type: Number, min: 0, required: true }, currency: String, method: { type: String, required: true }, destinationReference: String, providerPayoutId: String, status: { type: String, enum: ['requested', 'pending', 'processing', 'completed', 'failed', 'cancelled', 'reversed'], default: 'requested', index: true }, failureReason: String, idempotencyKey: { type: String, index: true }, requestedAt: { type: Date, default: Date.now }, processedAt: Date, completedAt: Date }, { timestamps: true });
+export const Withdrawal = mongoose.model('Withdrawal', schema);

@@ -24,6 +24,11 @@ const userSchema = new mongoose.Schema(
     phoneVerified: { type: Boolean, default: false },
     status: { type: String, enum: Object.values(USER_STATUS), default: USER_STATUS.ACTIVE },
     lastActiveAt: { type: Date, default: Date.now },
+    language: { type: String, default: 'en', trim: true, maxlength: 10 },
+    locale: { type: String, default: 'en-US', trim: true, maxlength: 20 },
+    timezone: { type: String, default: 'UTC', maxlength: 80 },
+    currency: { type: String, default: 'USD', uppercase: true, maxlength: 3 },
+    region: { type: String, default: 'US', uppercase: true, maxlength: 2 },
   },
   { timestamps: true }
 );

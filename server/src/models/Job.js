@@ -46,6 +46,9 @@ const jobSchema = new Schema(
     // Denormalized counters for hot reads; recomputed by their owning phases.
     proposalsCount: { type: Number, min: 0, default: 0 }, // Phase 6
     savedCount: { type: Number, min: 0, default: 0 },
+    aiRequirements: { type: Object, default: null },
+    aiQualityScore: { type: Number, min: 0, max: 100, default: null },
+    aiAnalysisUpdatedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

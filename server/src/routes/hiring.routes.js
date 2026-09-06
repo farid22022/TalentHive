@@ -1,0 +1,11 @@
+import { Router } from 'express';
+import { requireAuth } from '../middlewares/auth.js';
+import { validate } from '../middlewares/validate.js';
+import { hiringController as c } from '../controllers/hiring.controller.js';
+import { offerCreate, offerId, messageBody, contractId, projectId, milestoneId, submissionBody, submissionId, reviewBody } from '../validators/hiring.validators.js';
+const router = Router(); router.use(requireAuth);
+router.get('/offers', c.listOffers); router.post('/offers', validate(offerCreate), c.createOffer); router.get('/offers/:id', validate(offerId), c.getOffer); router.post('/offers/:id/send', validate(offerId), c.sendOffer); router.post('/offers/:id/accept', validate(offerId), c.acceptOffer); router.post('/offers/:id/reject', validate(offerId), c.rejectOffer); router.post('/offers/:id/request-changes', validate(offerId), validate(messageBody), c.requestChanges); router.post('/offers/:id/withdraw', validate(offerId), c.withdrawOffer);
+router.get('/contracts', c.contracts); router.get('/contracts/:id', validate(contractId), c.contract); for (const [path, action] of [['pause', 'pause'], ['resume', 'resume'], ['cancel', 'cancel'], ['complete', 'complete']]) router.post(`/contracts/:id/${path}`, validate(contractId), (req, _res, next) => { req.action = action; next(); }, c.contractAction);
+router.get('/projects', c.projects); router.get('/projects/:id', validate(projectId), c.project); router.get('/projects/:id/milestones', validate(projectId), c.milestones);
+router.post('/milestones/:id/start', validate(milestoneId), c.start); router.post('/milestones/:id/submit', validate(milestoneId), validate(submissionBody), c.submit); router.get('/milestones/:id/submissions', validate(milestoneId), c.submissions); router.post('/submissions/:id/approve', validate(submissionId), validate(reviewBody), (req, _res, next) => { req.action = 'approve'; next(); }, c.review); router.post('/submissions/:id/request-revision', validate(submissionId), validate(reviewBody), (req, _res, next) => { req.action = 'revision'; next(); }, c.review);
+export default router;

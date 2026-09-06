@@ -1,0 +1,5 @@
+import mongoose from 'mongoose';
+const { Schema } = mongoose;
+const schema = new Schema({ dispute: { type: Schema.Types.ObjectId, ref: 'Dispute', required: true, index: true }, submittedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true }, type: { type: String, enum: ['message', 'file', 'screenshot', 'time_entry', 'work_submission', 'milestone', 'invoice', 'payment', 'contract', 'other'], required: true }, title: { type: String, maxlength: 200 }, description: { type: String, maxlength: 2000 }, file: { type: Schema.Types.Mixed }, message: { type: Schema.Types.ObjectId, ref: 'Message' }, timeEntry: { type: Schema.Types.ObjectId, ref: 'TimeEntry' }, workSubmission: { type: Schema.Types.ObjectId, ref: 'WorkSubmission' }, invoice: { type: Schema.Types.ObjectId, ref: 'HourlyInvoice' }, payment: { type: Schema.Types.ObjectId, ref: 'Payment' } }, { timestamps: true });
+schema.index({ dispute: 1, createdAt: 1 });
+export const DisputeEvidence = mongoose.model('DisputeEvidence', schema);

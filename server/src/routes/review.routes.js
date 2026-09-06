@@ -1,0 +1,15 @@
+import { Router } from 'express';
+import { requireAuth } from '../middlewares/auth.js';
+import { validate } from '../middlewares/validate.js';
+import { reviewController as c } from '../controllers/review.controller.js';
+import { contractParam, reviewParam, userParam, createReview, replyBody, reportBody, listQuery } from '../validators/review.validators.js';
+const router = Router();
+router.get('/users/:userId/reviews', validate(userParam), validate(listQuery), c.list);
+router.get('/users/:userId/reputation', validate(userParam), c.reputation);
+router.get('/reviews/:id', validate(reviewParam), c.get);
+router.use(requireAuth);
+router.get('/contracts/:contractId/review-eligibility', validate(contractParam), c.eligibility);
+router.post('/contracts/:contractId/reviews', validate(contractParam), validate(createReview), c.create);
+router.post('/reviews/:id/reply', validate(reviewParam), validate(replyBody), c.reply);
+router.post('/reviews/:id/report', validate(reviewParam), validate(reportBody), c.report);
+export default router;

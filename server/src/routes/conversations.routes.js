@@ -1,0 +1,22 @@
+import { Router } from 'express';
+import { requireAuth } from '../middlewares/auth.js';
+import { validate } from '../middlewares/validate.js';
+import { conversationController } from '../controllers/conversation.controller.js';
+import { messageController } from '../controllers/message.controller.js';
+import { conversationCreateSchema, conversationIdParam } from '../validators/conversation.validators.js';
+import { createMessageSchema } from '../validators/message.validators.js';
+
+const router = Router();
+router.use(requireAuth);
+router.get('/', conversationController.list);
+router.post('/', validate(conversationCreateSchema), conversationController.createOrOpen);
+router.get('/:conversationId', validate(conversationIdParam), conversationController.getOne);
+router.get('/:conversationId/messages', validate(conversationIdParam), conversationController.listMessages);
+router.post('/:conversationId/messages', validate(createMessageSchema), messageController.create);
+router.post('/:conversationId/read', validate(conversationIdParam), conversationController.markRead);
+router.get('/:conversationId/search', validate(conversationIdParam), conversationController.searchMessages);
+router.patch('/messages/:messageId', messageController.edit);
+router.delete('/messages/:messageId', messageController.remove);
+router.post('/messages/:messageId/reactions', messageController.react);
+router.post('/messages/:messageId/pin', messageController.pin);
+export default router;
