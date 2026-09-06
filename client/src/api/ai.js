@@ -8,4 +8,8 @@ export const aiApi = {
   getAnalysis: (id) => api.get(`/ai/cv/analyses/${id}`).then((r) => r.data.data.analysis),
   deleteAnalysis: (id) => api.delete(`/ai/cv/analyses/${id}`).then((r) => r.data.data),
   applySkills: (id) => api.post(`/ai/cv/analyses/${id}/apply-skills`).then((r) => r.data.data),
+
+  // Cover-letter assistant: returns a draft to edit, never a submitted proposal.
+  draftProposal: ({ job, tone, notes } = {}) =>
+    api.post('/ai/proposal/draft', { job, tone, notes }).then((r) => r.data.data.draft),
 };

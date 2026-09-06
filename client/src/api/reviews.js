@@ -1,0 +1,3 @@
+import { api } from './client.js';
+const unwrap = (r) => r.data.data;
+export const reviewsApi = { eligibility: (contractId) => api.get(`/contracts/${contractId}/review-eligibility`).then(unwrap), create: (contractId, body) => api.post(`/contracts/${contractId}/reviews`, body).then(unwrap), list: (userId, params) => api.get(`/users/${userId}/reviews`, { params }).then(unwrap), reputation: (userId) => api.get(`/users/${userId}/reputation`).then(unwrap), get: (id) => api.get(`/reviews/${id}`).then(unwrap), reply: (id, content) => api.post(`/reviews/${id}/reply`, { content }).then(unwrap), report: (id, body) => api.post(`/reviews/${id}/report`, body).then(unwrap) };

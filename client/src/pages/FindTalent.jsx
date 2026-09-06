@@ -59,7 +59,7 @@ function TalentCard({ p }) {
 
 export default function FindTalent() {
   const [searchInput, setSearchInput] = useState('');
-  const [filters, setFilters] = useState({ search: '', category: '', availability: '', sort: 'recent', page: 1 });
+  const [filters, setFilters] = useState({ q: '', category: '', availability: '', sort: 'recent', page: 1 });
 
   const params = { ...filters, limit: 12 };
   // Strip empties so the query key stays stable.
@@ -71,7 +71,7 @@ export default function FindTalent() {
 
   const submit = (e) => {
     e.preventDefault();
-    setFilters((f) => ({ ...f, search: searchInput.trim(), page: 1 }));
+    setFilters((f) => ({ ...f, q: searchInput.trim(), page: 1 }));
   };
   const setFilter = (k, v) => setFilters((f) => ({ ...f, [k]: v, page: 1 }));
 

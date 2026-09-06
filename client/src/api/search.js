@@ -1,0 +1,3 @@
+import { api } from './client.js';
+const unwrap = (r) => r.data.data;
+export const searchApi = { global: (q) => api.get('/search', { params: { q } }).then(unwrap), suggestions: (q) => api.get('/search/suggestions', { params: { q } }).then(unwrap), history: () => api.get('/search/history').then(unwrap), savedSearches: () => api.get('/saved-searches').then(unwrap), saveSearch: (body) => api.post('/saved-searches', body).then(unwrap), recommendations: () => api.get('/jobs/recommended').then(unwrap), savedFreelancers: () => api.get('/freelancers/saved').then(unwrap), saveFreelancer: (id) => api.post(`/freelancers/${id}/save`).then(unwrap), unsaveFreelancer: (id) => api.delete(`/freelancers/${id}/save`).then(unwrap) };

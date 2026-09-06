@@ -1,15 +1,18 @@
 import { Outlet, NavLink, Link } from 'react-router-dom';
-import { Briefcase, LayoutDashboard, User, MessageSquare, Settings, Sparkles, ShieldCheck, Bookmark } from 'lucide-react';
+import { Briefcase, LayoutDashboard, User, MessageSquare, Settings, Sparkles, ShieldCheck, Bookmark, FileText, Inbox, FolderKanban } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 
 const items = [
   { to: '/dashboard', label: 'Overview', icon: LayoutDashboard },
   { to: '/dashboard/profile', label: 'Profile', icon: User },
   { to: '/dashboard/jobs', label: 'My Jobs', icon: Briefcase },
+  { to: '/dashboard/proposals/received', label: 'Proposals Received', icon: Inbox },
   { to: '/dashboard/saved-jobs', label: 'Saved Jobs', icon: Bookmark },
+  { to: '/dashboard/proposals', label: 'My Proposals', icon: FileText, end: true },
   { to: '/dashboard/cv-analysis', label: 'CV Analyzer', icon: Sparkles },
   { to: '/dashboard/verification', label: 'Verification', icon: ShieldCheck },
   { to: '/dashboard/messages', label: 'Messages', icon: MessageSquare },
+  { to: '/dashboard/projects', label: 'Projects', icon: FolderKanban },
   { to: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -29,11 +32,11 @@ export function DashboardLayout() {
             <span>TalentHive</span>
           </Link>
           <nav className="space-y-1" aria-label="Dashboard">
-            {nav.map(({ to, label, icon: Icon }) => (
+            {nav.map(({ to, label, icon: Icon, end }) => (
               <NavLink
                 key={to}
                 to={to}
-                end={to === '/dashboard'}
+                end={end || to === '/dashboard'}
                 className={({ isActive }) =>
                   `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium ${
                     isActive ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-100'
@@ -50,6 +53,9 @@ export function DashboardLayout() {
           <Outlet />
         </div>
       </div>
+      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-slate-200 bg-white/95 py-2 backdrop-blur md:hidden" aria-label="Mobile navigation">
+        {[['/dashboard', 'Home'], ['/dashboard/jobs', 'Search'], ['/dashboard/messages', 'Messages'], ['/dashboard/notifications', 'Alerts'], ['/dashboard/profile', 'Profile']].map(([to, label]) => <NavLink key={to} to={to} className={({ isActive }) => `text-center text-xs font-medium ${isActive ? 'text-brand-700' : 'text-slate-500'}`}>{label}</NavLink>)}
+      </nav>
     </div>
   );
 }
