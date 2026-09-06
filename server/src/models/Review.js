@@ -1,0 +1,8 @@
+import mongoose from 'mongoose';
+import { REVIEW_STATUS } from '../config/constants.js';
+const { Schema } = mongoose;
+const schema = new Schema({ reviewer: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true }, reviewee: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true }, client: { type: Schema.Types.ObjectId, ref: 'User', required: true }, freelancer: { type: Schema.Types.ObjectId, ref: 'User', required: true }, contract: { type: Schema.Types.ObjectId, ref: 'Contract', required: true, index: true }, project: { type: Schema.Types.ObjectId, ref: 'Project', required: true, index: true }, job: { type: Schema.Types.ObjectId, ref: 'Job' }, overallRating: { type: Number, min: 1, max: 5, required: true }, categoryRatings: { type: Map, of: Number, default: {} }, title: { type: String, trim: true, maxlength: 200, default: '' }, comment: { type: String, trim: true, required: true, maxlength: 5000 }, status: { type: String, enum: Object.values(REVIEW_STATUS), default: REVIEW_STATUS.PUBLISHED, index: true }, isEdited: { type: Boolean, default: false }, editedAt: Date, publishedAt: { type: Date, default: Date.now }, moderationStatus: { type: String, default: 'clear' }, reportCount: { type: Number, default: 0 }, helpfulCount: { type: Number, default: 0 }, reply: { author: { type: Schema.Types.ObjectId, ref: 'User' }, content: String, createdAt: Date, updatedAt: Date } }, { timestamps: true });
+schema.index({ reviewer: 1, reviewee: 1, contract: 1 }, { unique: true });
+schema.index({ reviewee: 1, status: 1, createdAt: -1 });
+schema.set('toJSON', { virtuals: true, transform: (_d, r) => { delete r.__v; return r; } });
+export const Review = mongoose.model('Review', schema);

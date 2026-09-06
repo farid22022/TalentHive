@@ -51,4 +51,9 @@ export function useApplySkills() {
   });
 }
 
+/** Cover-letter draft. Nothing is cached — each run is a fresh, chargeable suggestion. */
+export function useDraftProposal() {
+  return useMutation({ mutationFn: aiApi.draftProposal });
+}
+
 export { KEYS as aiKeys };

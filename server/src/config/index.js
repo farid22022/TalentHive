@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-const bool = (v, d = false) => (v == null ? d : ['1', 'true', 'yes', 'on'].includes(String(v).toLowerCase()));
+const bool = (v, d = false) => (v == null ? d : ['1', 'true', 'yes', 'on' ].includes(String(v).toLowerCase()));
 
 export const config = {
   env: process.env.NODE_ENV || 'development',
@@ -9,6 +9,7 @@ export const config = {
   port: parseInt(process.env.PORT || '5000', 10),
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
   mongoUri: process.env.MONGODB_URI || '', // empty => in-memory mongo in dev
+  allowMemoryFallback: bool(process.env.ALLOW_MEMORY_DB_FALLBACK, false),
   jwt: {
     accessSecret: process.env.JWT_SECRET || 'dev_access_secret_change_me',
     refreshSecret: process.env.JWT_REFRESH_SECRET || 'dev_refresh_secret_change_me',
@@ -37,6 +38,17 @@ export const config = {
   },
   payment: {
     provider: (process.env.PAYMENT_PROVIDER || 'mock').toLowerCase(),
+    secretKey: process.env.PAYMENT_SECRET_KEY || process.env.STRIPE_SECRET_KEY || '',
+    webhookSecret: process.env.PAYMENT_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET || '',
+    currency: (process.env.PAYMENT_CURRENCY || 'USD').toUpperCase(),
+    feePercentage: Number(process.env.PLATFORM_FEE_PERCENTAGE || 10),
+    fixedFee: Number(process.env.PLATFORM_FIXED_FEE || 0),
+    holdingDays: parseInt(process.env.PAYMENT_HOLDING_DAYS || '0', 10),
+  },
+  virtualCard: {
+    enabled: bool(process.env.VIRTUAL_CARD_ENABLED, true),
+    activationMinimum: Number(process.env.VIRTUAL_CARD_ACTIVATION_MINIMUM || 500),
+    currency: (process.env.VIRTUAL_CARD_CURRENCY || 'BDT').toUpperCase(),
   },
   seed: {
     adminEmail: process.env.SEED_ADMIN_EMAIL || 'admin@example.com',

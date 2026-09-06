@@ -9,7 +9,7 @@ Built incrementally. Each phase: implement → run → test → fix → verify i
 | 3  | AI CV analyzer (extraction, score, recommendations, history) | ✅ done |
 | 4  | Verification (email/phone/CV/identity, admin queue, badges) | ✅ done |
 | 5  | Job marketplace (post, browse, search, filters, saved jobs) | ✅ done |
-| 6  | Proposals (create/manage, client dashboard, shortlist, AI assistant) | ⬜ planned |
+| 6  | Proposals (create/manage, client dashboard, shortlist, AI assistant) | ✅ done |
 | 7  | Messaging (Socket.IO, conversations, attachments, notifications) | ⬜ planned |
 | 8  | Hiring & contracts (offers, fixed/hourly, milestones, work submission) | ⬜ planned |
 | 9  | Payments (abstraction, mock provider, wallet, fees, withdrawals, invoices) | ⬜ planned |

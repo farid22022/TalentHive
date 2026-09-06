@@ -1,4 +1,6 @@
 import dns from 'node:dns';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import mongoose from 'mongoose';
 import { config } from './index.js';
 import { logger } from './logger.js';
@@ -18,6 +20,22 @@ if (process.env.MONGODB_DNS) {
 }
 
 let memoryServer = null;
+const ATLAS_CONNECT_OPTIONS = { serverSelectionTimeoutMS: 30000, connectTimeoutMS: 30000, family: 4, tls: true };
+
+async function connectExternal(uri) {
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      await mongoose.connect(uri, ATLAS_CONNECT_OPTIONS);
+      return;
+    } catch (error) {
+      lastError = error;
+      await mongoose.disconnect().catch(() => {});
+      if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+  }
+  throw lastError;
+}
 
 /** True when the active connection is an ephemeral in-memory MongoDB (dev). */
 export function isMemoryServer() {
@@ -26,7 +44,13 @@ export function isMemoryServer() {
 
 async function startMemoryServer() {
   const { MongoMemoryServer } = await import('mongodb-memory-server');
-  memoryServer = await MongoMemoryServer.create();
+  // Keep the dev database off the system temp drive, which is commonly small on Windows.
+  const storageRoot = path.resolve(
+    process.env.MONGODB_MEMORY_DIR || path.join(process.cwd(), '.runtime', 'mongodb'),
+  );
+  await fs.mkdir(storageRoot, { recursive: true });
+  const dbPath = await fs.mkdtemp(path.join(storageRoot, 'mongo-mem-'));
+  memoryServer = await MongoMemoryServer.create({ instance: { dbPath } });
   const uri = memoryServer.getUri();
   logger.warn('Using in-memory MongoDB (dev only, data is NOT persisted).');
   return uri;
@@ -44,13 +68,17 @@ export async function connectDB() {
 
   if (config.isProd) {
     if (!config.mongoUri) throw new Error('MONGODB_URI is required in production');
-    await mongoose.connect(config.mongoUri, { serverSelectionTimeoutMS: 10000 });
+    await connectExternal(config.mongoUri);
     logger.info('MongoDB connected (external).');
   } else if (config.mongoUri) {
     try {
-      await mongoose.connect(config.mongoUri, { serverSelectionTimeoutMS: 8000 });
+      await connectExternal(config.mongoUri);
       logger.info('MongoDB connected (external).');
     } catch (err) {
+      if (!config.allowMemoryFallback) {
+        logger.error({ reason: err?.message }, 'Configured MongoDB connection failed; refusing in-memory fallback.');
+        throw err;
+      }
       logger.warn(
         { reason: err?.message },
         'Could not reach MONGODB_URI — falling back to in-memory MongoDB for dev. ' +

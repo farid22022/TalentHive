@@ -1,11 +1,17 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Clock, TrendingUp, Bookmark, BookmarkCheck, Pencil, Trash2, Briefcase } from 'lucide-react';
+import { ArrowLeft, Clock, TrendingUp, Bookmark, BookmarkCheck, Pencil, Trash2, Briefcase, Send, Inbox, CheckCircle2, Users } from 'lucide-react';
 import { useJob, useSaveJob, useUnsaveJob, useDeleteJob, useSavedJobs } from '../services/jobs.js';
+import { useMyProposalForJob } from '../services/proposals.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { apiErrorMessage } from '../api/client.js';
 import { formatBudget, timeAgo, initials, fileUrl } from '../utils/format.js';
-import { EXPERIENCE_LEVEL_LABELS, JOB_DURATION_LABELS, JOB_STATUS_LABELS } from '../constants/index.js';
+import {
+  EXPERIENCE_LEVEL_LABELS,
+  JOB_DURATION_LABELS,
+  JOB_STATUS_LABELS,
+  PROPOSAL_STATUS_LABELS,
+} from '../constants/index.js';
 import { Skeleton } from '../components/Loaders.jsx';
 import { Button } from '../components/Button.jsx';
 
@@ -23,6 +29,13 @@ export default function JobDetail() {
   const { data: savedData } = useSavedJobs({ limit: 50 }, { enabled: isAuthenticated });
   const isSaved = (savedData?.items || []).some((j) => (j._id || j.id) === id);
 
+  const ownerId = job?.client?._id || job?.client?.id;
+  const isOwner = isAuthenticated && !!user && String(ownerId) === String(user._id || user.id);
+
+  // "Did I already apply?" — skipped for the job's own owner, who cannot apply anyway.
+  const { proposal: mine } = useMyProposalForJob(id, { enabled: isAuthenticated && !!job && !isOwner });
+  const applied = !!mine && mine.status !== 'withdrawn';
+
   if (isLoading) {
     return <div className="mx-auto max-w-4xl px-4 py-8 space-y-4"><Skeleton className="h-32" /><Skeleton className="h-64" /></div>;
   }
@@ -38,8 +51,6 @@ export default function JobDetail() {
   }
 
   const c = job.client || {};
-  const ownerId = c._id || c.id;
-  const isOwner = isAuthenticated && user && String(ownerId) === String(user._id || user.id);
 
   const toggleSave = () => {
     if (!isAuthenticated) return navigate('/login');
@@ -77,6 +88,7 @@ export default function JobDetail() {
               {job.category && <span>{job.category}</span>}
               {job.experienceLevel && <span className="inline-flex items-center gap-1"><TrendingUp className="h-4 w-4" /> {EXPERIENCE_LEVEL_LABELS[job.experienceLevel]}</span>}
               {job.duration && <span className="inline-flex items-center gap-1"><Clock className="h-4 w-4" /> {JOB_DURATION_LABELS[job.duration]}</span>}
+              <span className="inline-flex items-center gap-1"><Users className="h-4 w-4" /> {job.proposalsCount || 0} proposals</span>
               <span>{timeAgo(job.createdAt)}</span>
             </div>
           </div>
@@ -87,15 +99,33 @@ export default function JobDetail() {
         </div>
 
         {/* Actions */}
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           {isOwner ? (
             <>
+              <Link to={`/dashboard/proposals/received?job=${id}`}>
+                <Button size="sm"><Inbox className="h-4 w-4" /> Proposals ({job.proposalsCount || 0})</Button>
+              </Link>
               <Link to={`/dashboard/jobs/${id}/edit`}><Button variant="secondary" size="sm"><Pencil className="h-4 w-4" /> Edit</Button></Link>
               <Button variant="danger" size="sm" onClick={remove} loading={del.isPending}><Trash2 className="h-4 w-4" /> Delete</Button>
             </>
           ) : (
             <>
-              <Button size="sm" onClick={() => (isAuthenticated ? toast('Proposals arrive in Phase 6') : navigate('/login'))}>Apply now</Button>
+              {applied ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700">
+                    <CheckCircle2 className="h-4 w-4" /> Applied · {PROPOSAL_STATUS_LABELS[mine.status] || mine.status}
+                  </span>
+                  <Link to="/dashboard/proposals">
+                    <Button variant="secondary" size="sm">View your proposal</Button>
+                  </Link>
+                </>
+              ) : job.status !== 'open' ? (
+                <Button size="sm" disabled>Not accepting proposals</Button>
+              ) : (
+                <Link to={`/dashboard/jobs/${id}/apply`}>
+                  <Button size="sm"><Send className="h-4 w-4" /> {mine ? 'Apply again' : 'Apply now'}</Button>
+                </Link>
+              )}
               <Button variant="secondary" size="sm" onClick={toggleSave} loading={save.isPending || unsave.isPending}>
                 {isSaved ? <><BookmarkCheck className="h-4 w-4" /> Saved</> : <><Bookmark className="h-4 w-4" /> Save</>}
               </Button>

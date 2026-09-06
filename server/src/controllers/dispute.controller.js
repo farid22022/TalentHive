@@ -1,0 +1,4 @@
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { ok, created } from '../utils/ApiResponse.js';
+import { disputeService as s } from '../services/dispute.service.js';
+export const disputeController = { list: asyncHandler(async (q, r) => ok(r, { disputes: await s.list(q.user) })), create: asyncHandler(async (q, r) => created(r, { dispute: await s.create(q.user, q.body) }, 'Dispute opened')), get: asyncHandler(async (q, r) => ok(r, await s.get(q.user, q.params.id))), evidence: asyncHandler(async (q, r) => created(r, { evidence: await s.evidence(q.user, q.params.id, q.body) }, 'Evidence added')), respond: asyncHandler(async (q, r) => ok(r, { dispute: await s.respond(q.user, q.params.id, q.body) }, 'Response recorded')), resolve: asyncHandler(async (q, r) => ok(r, { resolution: await s.resolve(q.user, q.params.id, q.body) }, 'Dispute resolved')) };

@@ -24,13 +24,22 @@ fields (e.g. cached rating/counts) via background recompute.
 ## Marketplace
 - **Job** — ✅ Phase 5. client (ref User, indexed), title, description, category (enum, indexed),
   skills[] (indexed), budget{type(`fixed`|`hourly`),min,max,currency}, experienceLevel(`entry`|`intermediate`|`expert`),
-  duration(`short`|`medium`|`long`), status(`draft`|`open`|`closed`|`filled`, indexed), proposalsCount (Phase 6),
-  savedCount. Indexes: text(title,description), {status,createdAt:-1}. Only `open` jobs are public;
-  drafts/closed/filled are owner-only. `toJSON` strips __v.
+  duration(`short`|`medium`|`long`), status(`draft`|`open`|`closed`|`filled`, indexed), proposalsCount
+  (✅ Phase 6 — ±1 as proposals are submitted/withdrawn), savedCount. Indexes: text(title,description),
+  {status,createdAt:-1}. Only `open` jobs are public; drafts/closed/filled are owner-only. `toJSON` strips __v.
 - **SavedJob** — ✅ Phase 5. user (ref, indexed), job (ref, indexed), timestamps. Unique compound index
   {user,job} (one bookmark per job); incrementing/decrementing Job.savedCount on save/unsave.
 - **Service** — freelancer, title, category, packages[{tier,price,delivery,revisions}], portfolio[].
-- **Proposal / JobApplication** — job, freelancer, coverLetter, bid, milestones[], status, attachments[].
+- **Proposal** — ✅ Phase 6. job (ref, indexed), freelancer (ref User, indexed), client (ref User, indexed —
+  denormalized job owner so a client can list everything they received in one query), coverLetter,
+  bid{amount,type(`fixed`|`hourly`),currency}, estimatedDays, milestones[{title,amount,dueDate,description}]
+  (keep their own `_id` so Phase 8 contracts can reference them individually), status
+  (`submitted`|`shortlisted`|`rejected`|`withdrawn`|`accepted`, indexed), reviewNote, viewedAt (client's
+  first open), decidedAt, withdrawnAt, aiAssisted (freelancer's own disclosure — transparency, not a
+  quality signal). Indexes: unique {job,freelancer} (withdrawn proposals are revived, not duplicated),
+  {client,status,createdAt:-1} (review queue), {freelancer,createdAt:-1}, {job,status,createdAt:-1}.
+  Job.proposalsCount moves ±1 on submit/withdraw. `toJSON` strips __v. Attachments are **not** part of
+  this phase — proposals carry text, bid and milestones only.
 - **Invitation / Interview** — job, client, freelancer, status, schedule, notes.
 
 ## Contracts & Money
@@ -60,5 +69,6 @@ fields (e.g. cached rating/counts) via background recompute.
   experienceYears, seniority, strengths[], weaknesses[], recommendations[{title,detail,priority}],
   missingSections[], wordCount, disclaimer}, tokens{input,output}, estimatedCost, status.
   Indexes: {user,feature,textHash} (cache), {user,feature,createdAt} (history). History pruned to 25/user.
-- **AIUsage** — ✅ Phase 3. per-call cost log: user, feature, provider, model, inputTokens, outputTokens,
-  estimatedCost, cached.
+- **AIUsage** — ✅ Phase 3. per-call cost log: user, feature (`cv_analysis` | `proposal_draft`), provider,
+  model, inputTokens, outputTokens, estimatedCost, cached. Cover-letter drafts (Phase 6) log usage here
+  but are never persisted as an `AIAnalysis` — the draft is advisory and lives only in the freelancer's form.

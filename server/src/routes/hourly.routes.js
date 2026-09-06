@@ -1,0 +1,14 @@
+import { Router } from 'express';
+import { requireAuth } from '../middlewares/auth.js';
+import { hourlyController as c } from '../controllers/hourly.controller.js';
+const router = Router();
+router.use(requireAuth);
+router.get('/hourly-contracts/:id/time-summary', c.summary);
+router.post('/time-tracking/start', c.start);
+router.post('/time-tracking/:timerId/heartbeat', c.heartbeat);
+router.post('/time-tracking/:timerId/stop', c.stop);
+router.post('/contracts/:id/time-entries', c.createEntry);
+router.get('/contracts/:id/time-entries', c.entries);
+router.delete('/time-entries/:entryId', c.removeEntry);
+router.post('/hourly-contracts/:id/invoices', c.invoice);
+export default router;

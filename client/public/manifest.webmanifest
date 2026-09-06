@@ -1,0 +1,10 @@
+{
+  "name": "TalentHive Freelance Marketplace",
+  "short_name": "TalentHive",
+  "description": "Hire verified freelance talent and manage projects anywhere.",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#0f766e",
+  "background_color": "#f8fafc",
+  "icons": [{ "src": "/vite.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

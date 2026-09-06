@@ -22,6 +22,12 @@ export function formatRate(rate) {
   return `$${Number(rate).toLocaleString()}/hr`;
 }
 
+export function formatNumber(value, locale = 'en-US') { return new Intl.NumberFormat(locale).format(Number(value || 0)); }
+export function formatCurrency(value, currency = 'USD', locale = 'en-US') { return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(Number(value || 0)); }
+export function formatDate(date, locale = 'en-US', timezone) { return date ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: timezone }).format(new Date(date)) : ''; }
+export function formatTime(date, locale = 'en-US', timezone) { return date ? new Intl.DateTimeFormat(locale, { timeStyle: 'short', timeZone: timezone }).format(new Date(date)) : ''; }
+export function formatRelativeTime(date, locale = 'en-US') { const seconds = Math.round((new Date(date).getTime() - Date.now()) / 1000); const units = [['day', 86400], ['hour', 3600], ['minute', 60]]; const unit = units.find(([, size]) => Math.abs(seconds) >= size); return new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(Math.round(seconds / (unit?.[1] || 1)), unit?.[0] || 'second'); }
+
 /** Format a job budget object { type, min, max, currency }. */
 export function formatBudget(budget) {
   if (!budget) return 'Budget not set';

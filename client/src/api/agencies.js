@@ -1,0 +1,3 @@
+import { api } from './client.js';
+const unwrap = (r) => r.data.data;
+export const agenciesApi = { list: (params) => api.get('/agencies', { params }).then(unwrap), get: (slug) => api.get(`/agencies/${slug}`).then(unwrap), create: (body) => api.post('/agencies', body).then(unwrap), workspace: (id) => api.get(`/agencies/${id}/workspace`).then(unwrap), workspaceBySlug: (slug) => api.get(`/agencies/${slug}/dashboard`).then(unwrap), members: (id) => api.get(`/agencies/${id}/members`).then(unwrap), invite: (id, body) => api.post(`/agencies/${id}/members/invite`, body).then(unwrap), invitations: () => api.get('/agency-invitations').then(unwrap), accept: (id, token) => api.post(`/agency-invitations/${id}/accept`, { token }).then(unwrap) };

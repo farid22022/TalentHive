@@ -46,7 +46,7 @@ export function RepeatableList({ title, icon: Icon, fields, value = [], onChange
           {Icon && <Icon className="h-5 w-5 text-brand-600" />} {title}
         </h2>
         {!draft && (
-          <Button variant="ghost" size="sm" onClick={() => open()}>
+          <Button type="button" variant="ghost" size="sm" onClick={() => open()}>
             <Plus className="h-4 w-4" /> {addLabel}
           </Button>
         )}
@@ -116,10 +116,10 @@ export function RepeatableList({ title, icon: Icon, fields, value = [], onChange
             })}
           </div>
           <div className="mt-3 flex gap-2">
-            <Button size="sm" onClick={commit}>
+            <Button type="button" size="sm" onClick={commit}>
               <Check className="h-4 w-4" /> {editIndex >= 0 ? 'Update' : 'Add'}
             </Button>
-            <Button size="sm" variant="ghost" onClick={close}>
+            <Button type="button" size="sm" variant="ghost" onClick={close}>
               <X className="h-4 w-4" /> Cancel
             </Button>
           </div>

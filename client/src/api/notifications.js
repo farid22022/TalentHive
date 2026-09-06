@@ -1,0 +1,2 @@
+import { api } from './client.js';
+export const notificationsApi = { list: (params) => api.get('/notifications', { params }).then((r) => r.data.data), read: (id) => api.patch(`/notifications/${id}/read`), readAll: () => api.post('/notifications/read-all'), archive: (id) => api.patch(`/notifications/${id}/archive`), preferences: () => api.get('/notification-preferences').then((r) => r.data.data.preferences), updatePreferences: (body) => api.patch('/notification-preferences', body).then((r) => r.data.data.preferences) };

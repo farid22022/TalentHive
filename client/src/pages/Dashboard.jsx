@@ -1,18 +1,21 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useMyProfile } from '../services/profile.js';
+import { useMyProposals, useReceivedProposals } from '../services/proposals.js';
+import { useMyJobs } from '../services/jobs.js';
 import { CheckCircle2, Circle, ArrowRight, Sparkles, Briefcase, Search } from 'lucide-react';
 
+// [label, fallback value, optional link]
 const cards = {
   freelancer: [
-    ['Profile completion', '40%'],
-    ['Active proposals', '0'],
+    ['Profile completion', '40%', '/dashboard/profile'],
+    ['Active proposals', '0', '/dashboard/proposals'],
     ['Active contracts', '0'],
     ['Available balance', '$0.00'],
   ],
   client: [
-    ['Active jobs', '0'],
-    ['Proposals received', '0'],
+    ['Active jobs', '0', '/dashboard/jobs'],
+    ['Proposals received', '0', '/dashboard/proposals/received'],
     ['Active contracts', '0'],
     ['Total spending', '$0.00'],
   ],
@@ -24,17 +27,31 @@ const cards = {
   ],
 };
 
+const totalOf = (query) => query.data?.pagination?.total ?? 0;
+
 export default function Dashboard() {
   const { user, hasRole } = useAuth();
   const role = hasRole('admin') ? 'admin' : hasRole('client') ? 'client' : 'freelancer';
   const isFreelancer = role === 'freelancer';
+  const isClient = role === 'client';
   const { data: profile } = useMyProfile({ enabled: isFreelancer });
   const completeness = profile?.completeness ?? 0;
   const profileDone = completeness >= 80;
 
-  const metrics = cards[role].map(([label, value]) =>
-    isFreelancer && label === 'Profile completion' ? [label, `${completeness}%`] : [label, value]
-  );
+  // Live counters. `total` comes from the pagination envelope, so limit 1 is enough.
+  const submitted = useMyProposals({ status: 'submitted', limit: 1 }, { enabled: isFreelancer });
+  const shortlisted = useMyProposals({ status: 'shortlisted', limit: 1 }, { enabled: isFreelancer });
+  const received = useReceivedProposals({ limit: 1 }, { enabled: isClient });
+  const openJobs = useMyJobs({ status: 'open', limit: 1 }, { enabled: isClient });
+
+  const overrides = {
+    'Profile completion': isFreelancer ? `${completeness}%` : null,
+    'Active proposals': isFreelancer ? String(totalOf(submitted) + totalOf(shortlisted)) : null,
+    'Active jobs': isClient ? String(totalOf(openJobs)) : null,
+    'Proposals received': isClient ? String(totalOf(received)) : null,
+  };
+
+  const metrics = cards[role].map(([label, value, to]) => [label, overrides[label] ?? value, to]);
 
   return (
     <div>
@@ -42,12 +59,27 @@ export default function Dashboard() {
       <p className="mt-1 text-sm text-slate-500 capitalize">{role} dashboard</p>
 
       <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {metrics.map(([label, value]) => (
-          <div key={label} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="text-sm text-slate-500">{label}</div>
-            <div className="mt-1 text-2xl font-bold text-slate-900">{value}</div>
-          </div>
-        ))}
+        {metrics.map(([label, value, to]) => {
+          const body = (
+            <>
+              <div className="text-sm text-slate-500">{label}</div>
+              <div className="mt-1 text-2xl font-bold text-slate-900">{value}</div>
+            </>
+          );
+          return to ? (
+            <Link
+              key={label}
+              to={to}
+              className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-brand-300 hover:shadow-md"
+            >
+              {body}
+            </Link>
+          ) : (
+            <div key={label} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              {body}
+            </div>
+          );
+        })}
       </div>
 
       <div className="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">

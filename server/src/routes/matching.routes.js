@@ -1,0 +1,12 @@
+import { Router } from 'express';
+import { requireAuth, requireRole } from '../middlewares/auth.js';
+import { validate } from '../middlewares/validate.js';
+import { aiLimiter } from '../middlewares/rateLimit.js';
+import { matchingController as c } from '../controllers/matching.controller.js';
+import { jobParam } from '../validators/matching.validators.js';
+import { ROLES } from '../config/constants.js';
+const router = Router(); router.use(requireAuth);
+router.post('/ai/jobs/:jobId/analyze', aiLimiter, requireRole(ROLES.CLIENT), validate(jobParam), c.analyzeJob);
+router.post('/ai/jobs/:jobId/match', aiLimiter, requireRole(ROLES.CLIENT), validate(jobParam), c.match);
+router.get('/jobs/:jobId/matches', requireRole(ROLES.CLIENT), validate(jobParam), c.list);
+export default router;

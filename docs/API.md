@@ -38,8 +38,9 @@ Base URL: `/api`. All responses use a consistent envelope.
 ## Files (`/api/files`) — Phase 2 ✅
 | GET | `/:kind/:name` | optional | – | `images` public; `documents` require Bearer (owner) |
 
-## AI (`/api/ai`) — Phase 3 ✅
-All require Bearer. `analyze` is rate-limited (per-user) and content-hash cached.
+## AI (`/api/ai`) — Phase 3 ✅ · Phase 6 ✅
+All require Bearer. `cv/analyze` and `proposal/draft` are rate-limited (per-user); `cv/analyze` is
+additionally content-hash cached.
 | Method | Path | Body | Notes |
 |--------|------|------|-------|
 | POST | `/cv/analyze` | `text?`, `force?` | Analyzes pasted `text`, else the profile's stored CV. Cached by content hash unless `force`. Advisory only — never touches verification |
@@ -48,6 +49,7 @@ All require Bearer. `analyze` is rate-limited (per-user) and content-hash cached
 | GET  | `/cv/analyses/:id` | – | Single analysis (owner-scoped) |
 | DELETE | `/cv/analyses/:id` | – | Delete one |
 | POST | `/cv/analyses/:id/apply-skills` | – | Merge that run's suggested skills into the profile |
+| POST | `/proposal/draft` | `job`, `tone?`(`professional`\|`friendly`\|`concise`), `notes?` (≤1000) | **Phase 6.** Drafts a cover letter from the job post + caller's profile. Rate-limited (`aiLimiter`). Returns `{coverLetter, suggestedBid{amount,type,currency}, suggestedDays, talkingPoints[], matchedSkills[], missingSkills[], tone, provider, model, disclaimer}`. Advisory only: nothing is persisted as an analysis and **no proposal is created**. 400 for your own job or a job that is not `open` |
 
 ## Verification (`/api/verification`) — Phase 4 ✅
 All require Bearer. Email/phone are self-serve; identity/document need admin review. Advisory AI never
@@ -80,6 +82,21 @@ enforced server-side (403 for non-owners). Draft/closed/filled jobs are visible 
 | POST | `/:id/save` | Bearer | – | Bookmark a job (idempotent) |
 | DELETE | `/:id/save` | Bearer | – | Remove bookmark |
 
+## Proposals (`/api/proposals`) — Phase 6 ✅
+Every route requires Bearer: a proposal is only ever visible to its author or the job owner. One
+proposal per freelancer per job — re-applying after a withdrawal revives the same record. Submitting
+auto-grants the `freelancer` role. `submitted`/`shortlisted` are the *active* statuses a freelancer can
+still revise or withdraw. `accepted` is not reachable in this phase (hiring is Phase 8).
+| Method | Path | Auth | Body / Query | Notes |
+|--------|------|------|--------------|-------|
+| POST | `/` | Bearer | job, coverLetter (50–5000), bid{amount,type?,currency?}, estimatedDays?, milestones[{title,amount?,dueDate?,description?}]? (≤20), aiAssisted? | Submits to an `open` job; `+1` on `job.proposalsCount`. 400 own job / job not open, 409 already applied |
+| GET | `/mine` | Bearer | `?job=&status=&page=&limit=` | Caller's own proposals, newest first (job populated). `?job=` answers "did I already apply?" |
+| GET | `/received` | Bearer | `?job=&status=&sort=recent\|bid_asc\|bid_desc&page=&limit=` | Proposals across the caller's jobs; each item carries a `freelancerProfile` snippet (title, rate, skills, badges, completeness) |
+| GET | `/:id` | Bearer | – | Author or job owner only — anyone else gets **404** (existence is not leaked). The job owner's first read stamps `viewedAt` |
+| PATCH | `/:id` | Bearer (author) | any submit field | Revise while active; 400 once withdrawn/rejected/accepted |
+| POST | `/:id/withdraw` | Bearer (author) | – | Sets `withdrawn` + `withdrawnAt`; `-1` on `job.proposalsCount` |
+| POST | `/:id/decision` | Bearer (job owner) | decision(`shortlist`\|`reject`\|`reconsider`), reviewNote? (≤1000) | → `shortlisted`/`rejected`/`submitted`. Stamps `decidedAt` (cleared by `reconsider`) and `viewedAt`. 400 for withdrawn/accepted |
+
 ## Planned mounts (later phases)
-`/clients /proposals /contracts /milestones /payments /wallet /withdrawals`
+`/clients /contracts /milestones /payments /wallet /withdrawals`
 `/messages /notifications /reviews /services /categories /skills /admin /reports /disputes`
