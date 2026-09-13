@@ -4,6 +4,7 @@ import { CheckCircle2, CircleAlert, LoaderCircle, ShieldCheck } from 'lucide-rea
 import { motion, useReducedMotion } from 'framer-motion';
 import { usePayment, usePayments, usePaymentSync, pendingPayment } from '../services/payments.js';
 import { money, statusLabel } from '../components/ProjectPayments.jsx';
+import { PaymentFlowAnimation } from '../components/PaymentFlowAnimation.jsx';
 
 function Details({ id }) {
   const query = usePayment(id);
@@ -17,6 +18,7 @@ function Details({ id }) {
   return <section className="mx-auto max-w-3xl space-y-5 pb-20">
     <Link className="font-semibold text-brand-700" to={`/dashboard/projects/${projectId}`}>← Back to project</Link>
     <div className="rounded-2xl border bg-white p-5 sm:p-8">
+      <PaymentFlowAnimation payment={p} milestone={p.milestone} />
       <div aria-live="polite" className="text-center">
         <motion.div key={`${p._id}-${p.status}`} initial={reduced ? false : { opacity: 0, scale: .85 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: .35 }} className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-50">
           {pending ? <LoaderCircle className="motion-safe:animate-spin text-brand-700" size={38} /> : success ? <CheckCircle2 className="text-emerald-600" size={38} /> : <CircleAlert className="text-amber-600" size={38} />}

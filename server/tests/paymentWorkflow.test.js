@@ -57,6 +57,8 @@ for (const provider of ['BKASH_SIMULATED', 'NAGAD_SIMULATED', 'ROCKET_SIMULATED'
     assert.equal(p.amount, 15000); assert.equal(p.status, 'checkout_created'); assert.equal(p.simulationOutcome, undefined); assert.equal(p.freelancerAmount, undefined);
     const events = []; const io = { to: room => ({ emit: (event, data) => events.push({ room, event, data }) }) };
     const done = await settle(p, io); assert.equal(done.status, 'succeeded');
+    const clientCardAfterFunding = await VirtualCard.findOne({ user: f.client._id });
+    assert.equal(clientCardAfterFunding.heldBalance, 15000);
     assert.equal((await Milestone.findById(f.milestone._id)).status, 'funded');
     assert.equal(await WalletLedgerEntry.countDocuments({ referenceId: p._id }), 1);
     assert.equal(await Transaction.countDocuments({ payment: p._id, type: 'escrow_funding' }), 1);
@@ -70,6 +72,7 @@ for (const provider of ['BKASH_SIMULATED', 'NAGAD_SIMULATED', 'ROCKET_SIMULATED'
     await hiringService.reviewSubmission(f.client, submission._id, 'approve');
     await Promise.all([paymentService.release(f.client, f.milestone._id), paymentService.release(f.client, f.milestone._id)]);
     assert.equal((await VirtualCard.findOne({ user: f.freelancer._id })).balance, done.freelancerAmount);
+    assert.equal((await VirtualCard.findOne({ user: f.client._id })).heldBalance, 0);
     assert.equal(await WalletLedgerEntry.countDocuments({ referenceId: p._id, type: 'developer_earning' }), 1);
     assert.equal((await Wallet.findOne({ user: f.freelancer._id })).totalEarned, done.freelancerAmount);
     const httpWorkspace = await auth(request(app).get(`/api/projects/${f.project._id}/workspace`), f.client);

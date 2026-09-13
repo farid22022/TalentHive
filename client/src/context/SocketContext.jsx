@@ -19,8 +19,10 @@ export function SocketProvider({ children }) {
       transports: ['websocket'],
     });
     setSocket(s);
-    s.on('wallet:updated', () => queryClient.invalidateQueries({ queryKey: ['virtual-card'] }));
-    return () => { s.close(); setSocket(null); };
+    const refreshCard = () => queryClient.invalidateQueries({ queryKey: ['virtual-card'] });
+    s.on('wallet:updated', refreshCard);
+    s.on('card:updated', refreshCard);
+    return () => { s.off('wallet:updated', refreshCard); s.off('card:updated', refreshCard); s.close(); setSocket(null); };
   }, [user, queryClient]);
   const value = useMemo(() => ({ socket }), [socket]);
   return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>;

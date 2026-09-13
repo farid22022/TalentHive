@@ -11,6 +11,7 @@ const schema = new Schema({
   expiryYear: { type: Number, required: true },
   status: { type: String, enum: Object.values(VIRTUAL_CARD_STATUS), default: VIRTUAL_CARD_STATUS.INACTIVE, index: true },
   balance: { type: Number, min: 0, default: 0 },
+  heldBalance: { type: Number, min: 0, default: 0 },
   currency: { type: String, uppercase: true, default: PHASE24_FINANCE.CURRENCY },
   activationMinimum: { type: Number, min: 0, required: true, default: PHASE24_FINANCE.ACTIVATION_MINIMUM },
   activatedAt: Date,

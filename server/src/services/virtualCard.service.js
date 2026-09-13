@@ -19,7 +19,7 @@ function cardView(card) {
 export const virtualCardService = {
   async ensureForUser(user) {
     if (!config.virtualCard.enabled) return null;
-    if (!user?.hasRole?.('freelancer')) return null;
+    if (!user?._id) return null;
     const existing = await VirtualCard.findOne({ user: user._id });
     if (existing) return existing;
     const seed = crypto.randomBytes(8).toString('hex').toUpperCase();
@@ -48,7 +48,7 @@ export const virtualCardService = {
 
   async activate(user) {
     const card = await this.ensureForUser(user);
-    if (!card) throw ApiError.forbidden('Only freelancers can use a virtual card');
+    if (!card) throw ApiError.forbidden('Virtual card is unavailable');
     if (card.balance < card.activationMinimum) throw ApiError.badRequest('Activation minimum has not been reached');
     if (card.status === VIRTUAL_CARD_STATUS.SUSPENDED) throw ApiError.badRequest('Unfreeze the card before activating it');
     card.status = VIRTUAL_CARD_STATUS.ACTIVE; card.activatedAt = card.activatedAt || new Date(); await card.save(); return card;
@@ -95,7 +95,28 @@ export const virtualCardService = {
 
   async wallet(user) {
     const card = await this.ensureForUser(user);
-    return card ? { balance: card.balance, currency: card.currency, cardId: card._id, status: card.status } : null;
+    return card ? { balance: card.balance, heldBalance: card.heldBalance, currency: card.currency, cardId: card._id, status: card.status } : null;
+  },
+
+  async debitForEscrow(userId, amount, referenceId, metadata = {}, session = null) {
+    const card = await VirtualCard.findOne({ user: userId }).session(session);
+    if (!card) return null;
+    const debit = Math.round(Number(amount) * 100) / 100;
+    const before = card.balance;
+    card.balance = Math.max(0, Math.round((card.balance - debit) * 100) / 100);
+    card.heldBalance = Math.round((card.heldBalance + debit) * 100) / 100;
+    await card.save({ session });
+    const [entry] = await WalletLedgerEntry.create([{ entryNumber: ref('LED'), user: userId, card: card._id, type: LEDGER_ENTRY_TYPE.CLIENT_PAYMENT, direction: 'debit', amount: debit, currency: card.currency, referenceType: 'ESCROW_FUNDING', referenceId, balanceAfter: card.balance, description: 'Client payment moved into milestone escrow', metadata: { ...metadata, balanceBefore: before, heldBalance: card.heldBalance } }], { session });
+    return { card, entry };
+  },
+
+  async releaseEscrow(userId, amount, referenceId, metadata = {}, session = null) {
+    const card = await VirtualCard.findOne({ user: userId }).session(session);
+    if (!card) return null;
+    const value = Math.round(Number(amount) * 100) / 100;
+    card.heldBalance = Math.max(0, Math.round((card.heldBalance - value) * 100) / 100);
+    await card.save({ session });
+    return card;
   },
 
   async setStatus(user, status) {

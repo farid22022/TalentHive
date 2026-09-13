@@ -41,6 +41,8 @@ export const paymentService = {
     if (!idempotencyKey || idempotencyKey.length > 180) throw ApiError.badRequest('A valid Idempotency-Key is required');
     if (!Object.values(SIMULATED_PROVIDER).includes(provider)) throw ApiError.badRequest('Unsupported payment method');
     if (!['success', 'failed'].includes(outcome) || (config.isProd && outcome !== 'success')) throw ApiError.badRequest('Invalid simulation outcome');
+    // Provision the authenticated client's own card before escrow debits so the card and ledger stay synchronized.
+    await virtualCardService.ensureForUser(actor);
     let result;
     try {
       await mongoose.connection.transaction(async (session) => {
@@ -106,7 +108,7 @@ export const paymentService = {
           await Milestone.updateOne({ _id: p.milestone }, { $set: { status: failed ? MILESTONE_STATUS.PENDING : MILESTONE_STATUS.FUNDED, paymentState: failed ? 'not_ready' : 'funded' } }, { session });
           if (!failed) {
             await Transaction.create([{ transactionNumber: number('TXN'), user: p.client, payment: p._id, project: p.project, contract: p.contract, milestone: p.milestone, type: 'escrow_funding', direction: 'debit', amount: p.amount, amountMinor: p.amountMinor, currency: p.currency, description: 'Milestone funds held in escrow' }], { session });
-            await WalletLedgerEntry.create([{ entryNumber: number('LED'), user: p.client, type: 'client_payment', direction: 'debit', amount: p.amount, currency: p.currency, referenceType: 'ESCROW_FUNDING', referenceId: p._id, balanceAfter: p.amount, description: 'Milestone escrow funded', metadata: { account: 'milestone_escrow' } }], { session });
+            await virtualCardService.debitForEscrow(p.client, p.amount, p._id, { project: p.project, contract: p.contract, milestone: p.milestone }, session);
           }
           for (const recipient of failed ? [p.client] : [p.client, p.freelancer]) {
             const [notice] = await Notification.create([{ recipient, type: failed ? 'PAYMENT_FAILED' : 'ESCROW_FUNDED', category: 'payment', title: failed ? 'Payment failed' : 'Milestone escrow funded', body: failed ? p.failureReason : `${p.amount} ${p.currency} is held in escrow until approved and released.`, entityType: 'Payment', entityId: p._id, actionUrl: `/dashboard/payments/${p._id}` }], { session }); notices.push(notice);
@@ -114,7 +116,17 @@ export const paymentService = {
         }
         await p.save({ session }); updated = p;
       });
-      if (updated) emitPayment(io, updated, updated.status === PAYMENT_STATUS.SUCCEEDED ? 'payment:success' : updated.status === PAYMENT_STATUS.FAILED ? 'payment:failed' : 'payment:processing');
+      if (updated) {
+        const event = updated.status === PAYMENT_STATUS.SUCCEEDED ? 'payment:success' : updated.status === PAYMENT_STATUS.FAILED ? 'payment:failed' : 'payment:processing';
+        emitPayment(io, updated, event);
+        if (updated.status === PAYMENT_STATUS.SUCCEEDED) {
+          emitPayment(io, updated, 'escrow:funded');
+          emitPayment(io, updated, 'milestone:funded');
+          io?.to(`user:${updated.client}`).emit('transaction:new', { payment: publicPayment(updated) });
+          io?.to(`user:${updated.client}`).emit('card:updated', { payment: publicPayment(updated) });
+          io?.to(`user:${updated.client}`).emit('wallet:updated', {});
+        }
+      }
       for (const n of notices) io?.to(`user:${n.recipient}`).emit('notification:new', { notification: n });
     }
   },
@@ -143,11 +155,20 @@ export const paymentService = {
       const w = await Wallet.findOneAndUpdate({ user: p.freelancer }, { $setOnInsert: { user: p.freelancer, currency: p.currency } }, { session, upsert: true, new: true });
       const before = w.pendingBalance; w.pendingBalance = (cents(before) + cents(p.freelancerAmount)) / 100; w.totalEarned = (cents(w.totalEarned) + cents(p.freelancerAmount)) / 100; await w.save({ session });
       await virtualCardService.creditEarning(p.freelancer, p.freelancerAmount, p._id, { project: p.project, contract: p.contract, milestone: p.milestone }, session);
+      await virtualCardService.releaseEscrow(p.client, p.amount, p._id, { project: p.project, contract: p.contract, milestone: p.milestone }, session);
       [result] = await Transaction.create([{ transactionNumber: number('TXN'), user: p.freelancer, payment: p._id, project: p.project, contract: p.contract, milestone: p.milestone, type: 'escrow_release', direction: 'credit', amount: p.freelancerAmount, amountMinor: cents(p.freelancerAmount), currency: p.currency, balanceBefore: before, balanceAfter: w.pendingBalance, description: 'Approved milestone earnings credited to virtual card' }], { session });
       p.escrowStatus = ESCROW_STATUS.RELEASED; await p.save({ session }); m.paymentState = 'paid'; m.status = MILESTONE_STATUS.PAID; await m.save({ session }); released = p;
       await Notification.create([{ recipient: p.freelancer, type: 'ESCROW_RELEASED', title: 'Earnings credited', body: `${p.freelancerAmount} ${p.currency} credited to your virtual card.`, actionUrl: '/dashboard/card' }], { session });
     });
-    if (released) { emitPayment(io, released, 'escrow:released'); io?.to(`user:${released.freelancer}`).emit('wallet:updated', {}); }
+    if (released) {
+      emitPayment(io, released, 'escrow:released');
+      io?.to(`user:${released.freelancer}`).emit('developer:earning', { payment: publicPayment(released) });
+      io?.to(`user:${released.freelancer}`).emit('wallet:updated', {});
+      io?.to(`user:${released.freelancer}`).emit('card:updated', { payment: publicPayment(released) });
+      io?.to(`user:${released.client}`).emit('wallet:updated', {});
+      io?.to(`user:${released.client}`).emit('card:updated', { payment: publicPayment(released) });
+      io?.to(`user:${released.client}`).emit('transaction:new', { payment: publicPayment(released) });
+    }
     return result;
   },
   async getWallet(user) { return wallet(user._id); },

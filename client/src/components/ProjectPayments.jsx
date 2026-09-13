@@ -5,6 +5,7 @@ import { LoaderCircle, ShieldCheck, Receipt } from 'lucide-react';
 import { paymentApi } from '../api/payment.js';
 import { hiringApi } from '../api/hiring.js';
 import { apiErrorMessage } from '../api/client.js';
+import { PaymentFlowAnimation } from './PaymentFlowAnimation.jsx';
 import { useHiringMutation } from '../services/hiring.js';
 import { pendingPayment, usePaymentSync } from '../services/payments.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -70,6 +71,7 @@ export function ProjectPayments({ workspace, client }) {
   const summary = workspace.financialSummary;
   return <div className="mt-5 space-y-5 pb-4">
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">{[['total', 'Total contract'], ['funded', 'Funded'], ['escrow', 'In escrow'], ['released', 'Released'], ['remaining', 'Remaining']].map(([key, title]) => <div key={key} className="rounded-xl border bg-white p-4"><p className="text-xs text-slate-500">{title}</p><p className="mt-2 break-words text-lg font-bold">{money(summary[key], summary.currency)}</p></div>)}</div>
+    {workspace.milestones.map(m => { const payment = workspace.payments.find(p => p.milestone === m._id); return payment ? <PaymentFlowAnimation key={`flow-${m._id}`} payment={payment} milestone={m} /> : null; })}
     <div className="rounded-xl border bg-white p-5"><h2 className="text-lg font-semibold">Milestones & payments</h2><p className="mt-1 text-sm text-slate-500">Fund work securely, review delivery, then release escrow.</p>
       {workspace.milestones.length === 0 && <p className="mt-4 rounded-lg bg-slate-50 p-4">No milestones have been agreed for this contract yet.</p>}
       {workspace.milestones.map(m => {

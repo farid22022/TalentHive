@@ -8,7 +8,7 @@ export function usePaymentSync() {
   const qc = useQueryClient();
   useEffect(() => {
     const refresh = () => { qc.invalidateQueries({ queryKey: ['payments'] }); qc.invalidateQueries({ queryKey: ['hiring'] }); qc.invalidateQueries({ queryKey: ['notifications'] }); };
-    const events = ['payment:created', 'payment:processing', 'payment:success', 'payment:failed', 'escrow:released', 'connect'];
+    const events = ['payment:created', 'payment:processing', 'payment:success', 'payment:failed', 'escrow:funded', 'milestone:funded', 'escrow:released', 'transaction:new', 'developer:earning', 'card:updated', 'connect'];
     events.forEach(e => socket?.on(e, refresh));
     return () => events.forEach(e => socket?.off(e, refresh));
   }, [socket, qc]);
