@@ -1,0 +1,13 @@
+import { Router } from 'express';
+import { requireAuth } from '../middlewares/auth.js';
+import { projectWorkspaceController as c } from '../controllers/projectWorkspace.controller.js';
+const router = Router(); router.use(requireAuth);
+router.get('/projects/:id/workspace', c.board);
+router.post('/projects/:id/tasks', c.createTask);
+router.patch('/project-tasks/:taskId', c.updateTask);
+router.post('/projects/:id/issues', c.createIssue);
+router.patch('/project-issues/:issueId', c.updateIssue);
+router.post('/projects/:id/deletion-request', c.requestDeletion);
+router.post('/projects/:id/deletion-confirmation', c.confirmDeletion);
+router.delete('/projects/:id', c.deleteProject);
+export default router;

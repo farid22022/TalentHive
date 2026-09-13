@@ -5,4 +5,5 @@ export const useOffers = () => useQuery({ queryKey: hiringKeys.offers, queryFn: 
 export const useContracts = () => useQuery({ queryKey: hiringKeys.contracts, queryFn: hiringApi.contracts });
 export const useProjects = () => useQuery({ queryKey: hiringKeys.projects, queryFn: hiringApi.projects });
 export const useProject = (id) => useQuery({ queryKey: hiringKeys.project(id), queryFn: () => hiringApi.project(id), enabled: !!id });
+export const useWorkspace = (id) => useQuery({ queryKey: ['hiring', 'workspace', id], queryFn: () => hiringApi.workspace(id), enabled: !!id, refetchInterval: 5000 });
 export function useHiringMutation(action) { const qc = useQueryClient(); return useMutation({ mutationFn: action, onSuccess: () => { qc.invalidateQueries({ queryKey: ['hiring'] }); } }); }

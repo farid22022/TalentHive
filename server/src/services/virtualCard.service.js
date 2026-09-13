@@ -112,14 +112,15 @@ export const virtualCardService = {
     return card;
   },
 
-  async creditEarning(userId, amount, referenceId, metadata = {}) {
-    const card = await VirtualCard.findOne({ user: userId });
+  async creditEarning(userId, amount, referenceId, metadata = {}, session = null) {
+    const card = await VirtualCard.findOne({ user: userId }).session(session);
     if (!card) throw ApiError.badRequest('Developer virtual card not found');
     const before = card.balance;
     card.balance += Math.round(Number(amount) * 100) / 100;
     if (card.status === VIRTUAL_CARD_STATUS.INACTIVE && card.balance >= card.activationMinimum) { card.status = VIRTUAL_CARD_STATUS.ACTIVE; card.activatedAt = card.activatedAt || new Date(); }
-    await card.save();
-    return WalletLedgerEntry.create({ entryNumber: ref('LED'), user: userId, card: card._id, type: LEDGER_ENTRY_TYPE.DEVELOPER_EARNING, direction: 'credit', amount, currency: card.currency, referenceType: 'ESCROW_RELEASE', referenceId, balanceAfter: card.balance, description: 'Developer earnings', metadata: { ...metadata, balanceBefore: before } });
+    await card.save({ session });
+    const [entry] = await WalletLedgerEntry.create([{ entryNumber: ref('LED'), user: userId, card: card._id, type: LEDGER_ENTRY_TYPE.DEVELOPER_EARNING, direction: 'credit', amount, currency: card.currency, referenceType: 'ESCROW_RELEASE', referenceId, balanceAfter: card.balance, description: 'Developer earnings', metadata: { ...metadata, balanceBefore: before } }], { session });
+    return entry;
   },
 };
 

@@ -13,6 +13,7 @@ const items = [
   { to: '/dashboard/cv-analysis', label: 'CV Analyzer', icon: Sparkles },
   { to: '/dashboard/verification', label: 'Verification', icon: ShieldCheck },
   { to: '/dashboard/messages', label: 'Messages', icon: MessageSquare },
+  { to: '/dashboard/payments', label: 'Payments', icon: CreditCard },
   { to: '/dashboard/projects', label: 'Projects', icon: FolderKanban },
   { to: '/dashboard/card', label: 'My Virtual Card', icon: CreditCard, developerOnly: true },
   { to: '/dashboard/settings', label: 'Settings', icon: Settings },

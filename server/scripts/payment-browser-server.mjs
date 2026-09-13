@@ -1,0 +1,40 @@
+// Disposable browser fixture. Never connects to the application's configured database.
+import mongoose from 'mongoose';
+import { MongoMemoryReplSet } from 'mongodb-memory-server';
+import http from 'node:http';
+import express from 'express';
+import { fileURLToPath } from 'node:url';
+import { Server } from 'socket.io';
+import { createServer } from '../../client/node_modules/vite/dist/node/index.js';
+import react from '../../client/node_modules/@vitejs/plugin-react/dist/index.js';
+import { createApp } from '../src/app.js';
+import { User } from '../src/models/User.js';
+import { Project } from '../src/models/Project.js';
+import { Contract } from '../src/models/Contract.js';
+import { Milestone } from '../src/models/Milestone.js';
+import { virtualCardService } from '../src/services/virtualCard.service.js';
+import { startPaymentWorker } from '../src/services/payment.service.js';
+import { registerSocketHandlers } from '../src/sockets/index.js';
+const mongo = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
+await mongoose.connect(mongo.getUri());
+await Promise.all(Object.values(mongoose.models).map(m => m.init()));
+mongoose.set('sanitizeFilter', true);
+for (const role of ['client', 'freelancer']) {
+  const u = new User({ name: role === 'client' ? 'Demo Client' : 'Demo Developer', email: `${role}@payment.test`, role, roles: [role], emailVerified: true });
+  await u.setPassword('PaymentTest123!'); await u.save();
+  if (role === 'freelancer') await virtualCardService.ensureForUser(u);
+}
+const client = await User.findOne({ role: 'client' }), freelancer = await User.findOne({ role: 'freelancer' });
+const contract = await Contract.create({ client: client._id, freelancer: freelancer._id, job: new mongoose.Types.ObjectId(), proposal: new mongoose.Types.ObjectId(), offer: new mongoose.Types.ObjectId(), contractNumber: 'BROWSER-TEST', title: 'Commerce development', description: 'Browser verification contract', type: 'fixed', totalAmount: 80000, status: 'active' });
+const project = await Project.create({ client: client._id, freelancer: freelancer._id, job: contract.job, contract: contract._id, title: 'Commerce Website', description: 'Payment workflow browser verification' });
+for (const [index, title] of ['Storefront UI', 'Backend API', 'Deployment', 'Failure and retry'].entries()) await Milestone.create({ project: project._id, contract: contract._id, title, amount: 20000, order: index + 1 });
+const outer = express();
+process.chdir(fileURLToPath(new URL('../../client', import.meta.url)));
+const vite = await createServer({ root: fileURLToPath(new URL('../../client', import.meta.url)), configFile: false, plugins: [react()], server: { middlewareMode: true }, appType: 'spa', define: { 'import.meta.env.VITE_API_URL': JSON.stringify('/api'), 'import.meta.env.VITE_SOCKET_URL': JSON.stringify('http://localhost:5181') } });
+const api = createApp();
+outer.use('/api', (req, res, next) => { req.url = '/api' + req.url; return api(req, res, next); });
+outer.use(vite.middlewares);
+const server = http.createServer(outer), io = new Server(server);
+registerSocketHandlers(io); api.set('io', io); const stop = startPaymentWorker(io);
+server.listen(5181, '127.0.0.1', () => console.log('Payment browser fixture ready at http://localhost:5181'));
+process.on('SIGINT', async () => { stop(); io.close(); await vite.close(); await mongoose.disconnect(); await mongo.stop(); server.close(); process.exit(); });

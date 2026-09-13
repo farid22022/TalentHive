@@ -43,14 +43,14 @@ export function isMemoryServer() {
 }
 
 async function startMemoryServer() {
-  const { MongoMemoryServer } = await import('mongodb-memory-server');
+  const { MongoMemoryReplSet } = await import('mongodb-memory-server');
   // Keep the dev database off the system temp drive, which is commonly small on Windows.
   const storageRoot = path.resolve(
     process.env.MONGODB_MEMORY_DIR || path.join(process.cwd(), '.runtime', 'mongodb'),
   );
   await fs.mkdir(storageRoot, { recursive: true });
   const dbPath = await fs.mkdtemp(path.join(storageRoot, 'mongo-mem-'));
-  memoryServer = await MongoMemoryServer.create({ instance: { dbPath } });
+  memoryServer = await MongoMemoryReplSet.create({ replSet: { count: 1 }, instanceOpts: [{ dbPath }] });
   const uri = memoryServer.getUri();
   logger.warn('Using in-memory MongoDB (dev only, data is NOT persisted).');
   return uri;

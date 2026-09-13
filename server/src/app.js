@@ -27,7 +27,7 @@ export function createApp() {
   app.use(express.urlencoded({ extended: true }));
   app.use(cookieParser());
   app.use((req, res, next) => { const requestId = req.get('X-Request-Id') || `req_${crypto.randomUUID()}`; req.requestId = requestId; res.setHeader('X-Request-Id', requestId); const started = Date.now(); res.on('finish', () => recordRequest(res.statusCode, Date.now() - started)); next(); });
-  app.use(pinoHttp({ logger, autoLogging: !config.isProd }));
+  app.use(pinoHttp({ logger, autoLogging: !config.isProd, redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'] }));
 
   app.use(healthRoutes);
 

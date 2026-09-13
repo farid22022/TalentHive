@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { config } from '../../config/index.js';
 import { logger } from '../../config/logger.js';
 
@@ -10,7 +11,7 @@ class MockPaymentProvider {
     this.name = 'mock';
   }
   async createPaymentIntent({ amount, currency = 'usd', metadata = {} }) {
-    return { id: `pi_mock_${Date.now()}`, status: 'requires_capture', amount, currency, metadata, mocked: true };
+    return { id: `pi_mock_${crypto.randomUUID()}`, status: 'requires_capture', amount, currency, metadata, mocked: true };
   }
   async capture(intentId) {
     return { id: intentId, status: 'succeeded', mocked: true };

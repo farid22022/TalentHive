@@ -36,6 +36,7 @@ const ResetPassword = lazy(() => import('./pages/ResetPassword.jsx'));
 const VerifyEmail = lazy(() => import('./pages/VerifyEmail.jsx'));
 const Placeholder = lazy(() => import('./pages/Placeholder.jsx'));
 const Messages = lazy(() => import('./pages/Messages.jsx'));
+const Payments = lazy(() => import('./pages/Payments.jsx'));
 const Projects = lazy(() => import('./pages/Projects.jsx'));
 const ReviewForm = lazy(() => import('./pages/ReviewForm.jsx'));
 const CandidateMatches = lazy(() => import('./pages/CandidateMatches.jsx'));
@@ -125,6 +126,8 @@ export default function App() {
             <Route path="admin" element={<ProtectedRoute roles={['admin']}><AdminDashboard /></ProtectedRoute>} />
             <Route path="messages" element={<Messages />} />
             <Route path="messages/:conversationId" element={<Messages />} />
+            <Route path="payments" element={<Payments />} />
+            <Route path="payments/:paymentId" element={<Payments />} />
             <Route path="projects" element={<Projects />} />
             <Route path="projects/:projectId" element={<Projects />} />
             <Route path="contracts/:contractId/review" element={<ReviewForm />} />

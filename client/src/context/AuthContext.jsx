@@ -16,7 +16,8 @@ export function AuthProvider({ children }) {
         const { accessToken, user: u } = await authApi.refresh();
         if (!active) return;
         setAccessToken(accessToken);
-        setUser(u || (await authApi.me()).user);
+        const restored = u || (await authApi.me()).user;
+        setUser(restored ? { ...restored, _id: restored._id || restored.id } : null);
       } catch {
         setAccessToken(null);
       } finally {
@@ -29,14 +30,14 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (credentials) => {
     const { accessToken, user: u } = await authApi.login(credentials);
     setAccessToken(accessToken);
-    setUser(u);
+    setUser({ ...u, _id: u._id || u.id });
     return u;
   }, []);
 
   const register = useCallback(async (payload) => {
     const { accessToken, user: u } = await authApi.register(payload);
     setAccessToken(accessToken);
-    setUser(u);
+    setUser({ ...u, _id: u._id || u.id });
     return u;
   }, []);
 

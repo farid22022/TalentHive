@@ -1,0 +1,55 @@
+PHASES COMPLETED
+
+Roadmap total: 15 phases.
+
+TalentHive: 15 of 15 phase areas are represented in the codebase. It is the functional reference project; this count means feature coverage is present, not that every production integration has been independently re-tested today.
+
+Giggo: 2 fully completed phases, plus 1 partial phase.
+
+Authentication platform decision: Supabase Auth will replace Giggo's custom password/JWT/refresh-token implementation. This is a foundation adjustment, not a new marketplace phase. Existing profile and verification records remain in MongoDB.
+
+1. Phase 1 - Foundation: COMPLETE
+   Authentication, role-aware access, base React/Express structure, MongoDB connection, layouts, navigation, error handling, and automated checks.
+
+2. Phase 2 - Freelancer Profiles: PARTIAL
+   Freelancer/client onboarding, public profiles, skills, education, experience, portfolio data, and profile completion are implemented. CV upload and analysis are intentionally deferred to the next phase.
+
+3. Phase 4 - Verification: COMPLETE
+   Email verification, phone-code abstraction, document/CV verification requests, admin review queue, decisions, and verification badges are implemented.
+
+PHASES NEXT
+
+Foundation Adjustment A - Supabase Auth Migration: NOW
+   Delivery: Changes committed and pushed on feat/verified-email-auth in both repositories. Frontend PR #30 and backend PR #8 are open and mergeable against main; review is requested from farid22022. Frontend CI run #23 and backend CI run #10 passed. Human review and remaining live regression checks are pending.
+   UI repair: Overview email-verification checklist now renders a green check when user.emailVerified is true and an empty circle otherwise.
+   Repair status: Fixed React StrictMode callback/reset loading guard and explicit expired-link handling. Identified backend login 500 as MongoDB error 13297: URI selected lowercase giggo while Atlas contains Giggo. Added MONGODB_DB_NAME override set locally to Giggo; no data renamed or removed. Full live login remains to be verified after restart.
+   Configuration update: Backend SUPABASE_URL added to ignored .env. User reports receiving and completing email verification; full Giggo login and session restoration still require end-to-end verification after backend restart.
+   UI adjustment: Login offers verification-link resend with email validation, request feedback, and a 60-second cooldown retained across refreshes within the tab. Live email delivery remains unverified.
+   UI adjustment: Shared password fields include an accessible show/hide icon; passwords are hidden by default.
+   Current implementation status: Migration code is present on `feat/supabase-auth` branches; frontend build and nine backend tests passed previously. Frontend Supabase configuration is now supplied in ignored .env.local. Backend environment configuration, dashboard email-confirmation settings, custom SMTP, and browser/end-to-end confirmation-email testing still need verification; the migration is not complete.
+   1. Create the Giggo Supabase project; configure approved localhost redirect URLs; enable Email/Password; and require email confirmation before a new account can use Giggo.
+   2. Configure a custom SMTP sender before integration testing, because reliable email-verification delivery cannot depend on Supabase's built-in development sender.
+   3. Implement the frontend with Vite React and `@supabase/supabase-js` only; do not use Next.js-only `@supabase/ssr`, `page.tsx`, or middleware files. Include sign-up, sign-in, session restore, sign-out, and the verified-email state.
+   4. Require Supabase Email confirmation in the dashboard, then make Express verify issued Supabase access tokens through Supabase JWKS; never trust client role data. Supabase's access-token JWT does not contain the email-confirmed timestamp.
+   5. Link MongoDB User records to the immutable Supabase user ID and retain Giggo roles/profiles in MongoDB.
+   6. Retire custom password hashes and RefreshToken issuance only after verified email/password registration, confirmation, login, logout, session restore, and role protection pass end-to-end.
+   7. Store only publishable Supabase configuration in the frontend; keep SMTP credentials and Supabase service-role credentials server-only and out of Git. Google OAuth is intentionally deferred.
+
+3. Phase 3 - AI CV Analyzer: NEXT
+   Implement CV upload, safe file validation/storage, text extraction, provider-agnostic AI analysis, extracted-data review, profile score, recommendations, and analysis history. This also completes the deferred CV portion of Phase 2.
+
+5. Phase 5 - Job Marketplace
+   Job posting, browsing, search, filters, job details, and saved jobs. The frontend screens already exist; the missing work is the real Giggo backend API, database model, authorization, and integration.
+
+6. Phase 6 - Proposal System
+7. Phase 7 - Messaging
+8. Phase 8 - Hiring and Contracts
+9. Phase 9 - Payments
+10. Phase 10 - Services Marketplace
+11. Phase 11 - Reviews and Reputation
+12. Phase 12 - AI Matching
+13. Phase 13 - Disputes and Moderation
+14. Phase 14 - Admin Platform
+15. Phase 15 - Production Hardening
+
+Rule: A phase moves to completed only after its frontend, API, validation, authorization, persistence, tests, and integration verification pass.

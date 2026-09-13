@@ -1,3 +1,4 @@
+import { startPaymentWorker } from './services/payment.service.js';
 import http from 'node:http';
 import { Server as SocketServer } from 'socket.io';
 import { createApp } from './app.js';
@@ -18,6 +19,7 @@ async function start() {
   });
   registerSocketHandlers(io);
   app.set('io', io);
+  const stopPaymentWorker = startPaymentWorker(io);
 
   server.listen(config.port, () => {
     logger.info(`🚀 TalentHive API listening on http://localhost:${config.port} (${config.env})`);
@@ -25,6 +27,7 @@ async function start() {
 
   const shutdown = async (signal) => {
     logger.info(`${signal} received — shutting down`);
+    stopPaymentWorker();
     io.close();
     await new Promise((resolve) => server.close(resolve));
     await disconnectDB();

@@ -40,7 +40,7 @@ export const config = {
     provider: (process.env.PAYMENT_PROVIDER || 'mock').toLowerCase(),
     secretKey: process.env.PAYMENT_SECRET_KEY || process.env.STRIPE_SECRET_KEY || '',
     webhookSecret: process.env.PAYMENT_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET || '',
-    currency: (process.env.PAYMENT_CURRENCY || 'USD').toUpperCase(),
+    currency: (process.env.PAYMENT_CURRENCY || 'BDT').toUpperCase(),
     feePercentage: Number(process.env.PLATFORM_FEE_PERCENTAGE || 10),
     fixedFee: Number(process.env.PLATFORM_FIXED_FEE || 0),
     holdingDays: parseInt(process.env.PAYMENT_HOLDING_DAYS || '0', 10),

@@ -1,11 +1,180 @@
-import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { CheckCircle2, Circle, Clock3 } from 'lucide-react';
-import { hiringApi } from '../api/hiring.js';
-import { useProject, useProjects, useHiringMutation } from '../services/hiring.js';
-
-const styles = { approved: 'bg-emerald-100 text-emerald-700', in_progress: 'bg-blue-100 text-blue-700', revision: 'bg-amber-100 text-amber-700', submitted: 'bg-violet-100 text-violet-700' };
-function Card({ project }) { return <Link to={`/dashboard/projects/${project._id}`} className="block rounded-xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md"><div className="flex items-start justify-between gap-4"><div><h2 className="font-semibold text-slate-900">{project.title}</h2><p className="mt-1 text-sm text-slate-500">{project.description}</p></div><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">{project.status.replaceAll('_', ' ')}</span></div><div className="mt-5"><div className="mb-1 flex justify-between text-xs text-slate-500"><span>Progress</span><span>{project.progress}%</span></div><div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-brand-600" style={{ width: `${project.progress}%` }} /></div></div></Link>; }
-function List() { const { data, isLoading, isError } = useProjects(); if (isLoading) return <div className="p-8 text-slate-500">Loading projects...</div>; if (isError) return <div className="rounded-xl bg-red-50 p-5 text-red-700">Projects could not be loaded.</div>; const projects = data?.projects || []; return <section><p className="text-sm font-semibold uppercase tracking-wider text-brand-600">Workspace</p><h1 className="mt-1 text-3xl font-bold text-slate-900">Projects</h1><p className="mt-2 text-slate-500">Track contracts, milestones, and work awaiting review.</p><div className="mt-6 grid gap-4 md:grid-cols-2">{projects.length ? projects.map((p) => <Card key={p._id} project={p} />) : <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-500 md:col-span-2">No projects yet. Accepted offers will appear here.</div>}</div></section>; }
-function Detail() { const { projectId } = useParams(); const { data, isLoading, isError } = useProject(projectId); const start = useHiringMutation((id) => hiringApi.startMilestone(id)); const submit = useHiringMutation(({ id, description }) => hiringApi.submitWork(id, { description })); const [text, setText] = useState(''); if (isLoading) return <div className="p-8 text-slate-500">Loading workspace...</div>; if (isError || !data) return <div className="rounded-xl bg-red-50 p-5 text-red-700">Project could not be loaded.</div>; const p = data.project; return <section><Link to="/dashboard/projects" className="text-sm font-semibold text-brand-600">Back to projects</Link><div className="mt-4 rounded-2xl bg-slate-900 p-6 text-white"><div className="flex items-start justify-between gap-4"><div><p className="text-sm text-slate-300">Project workspace</p><h1 className="mt-1 text-3xl font-bold">{p.title}</h1></div><div className="text-right"><div className="text-3xl font-bold">{p.progress}%</div><p className="text-sm text-slate-300">complete</p></div></div></div><div className="mt-6 space-y-3">{(data.milestones || []).map((m) => <div key={m._id} className="rounded-xl border border-slate-200 bg-white p-5"><div className="flex items-center gap-3">{m.status === 'approved' ? <CheckCircle2 className="text-emerald-500" /> : m.status === 'in_progress' ? <Clock3 className="text-blue-500" /> : <Circle className="text-slate-300" />}<div className="min-w-0 flex-1"><h2 className="font-semibold text-slate-900">{m.title}</h2><p className="text-sm text-slate-500">{m.description || 'No description'}{m.amount ? ` • $${m.amount}` : ''}</p></div><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${styles[m.status] || 'bg-slate-100 text-slate-600'}`}>{m.status.replaceAll('_', ' ')}</span></div>{m.status === 'pending' && <button className="mt-4 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white" onClick={() => start.mutate(m._id)}>Start milestone</button>}{m.status === 'in_progress' && <form className="mt-4 flex gap-2" onSubmit={(e) => { e.preventDefault(); if (text.trim()) { submit.mutate({ id: m._id, description: text }); setText(''); } }}><input className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" value={text} onChange={(e) => setText(e.target.value)} placeholder="Describe completed work" /><button className="rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white">Submit</button></form>}{m.status === 'submitted' && <p className="mt-4 text-sm font-medium text-violet-700">Awaiting client review.</p>}</div>)}</div></section>; }
-export default function Projects() { return useParams().projectId ? <Detail /> : <List />; }
+import { useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import { hiringApi } from "../api/hiring.js";
+import { ProjectPayments } from "../components/ProjectPayments.jsx";
+import {
+  useProjects,
+  useWorkspace,
+  useHiringMutation,
+} from "../services/hiring.js";
+import { useAuth } from "../context/AuthContext.jsx";
+import { apiErrorMessage } from "../api/client.js";
+const cols = [
+  ["TODO", "Todo"],
+  ["IN_PROGRESS", "In Progress"],
+  ["IN_REVIEW", "In Review"],
+  ["DONE", "Done"],
+];
+const entityId = (value) =>
+  value?._id || value?.id || value?.$oid || value || null;
+function List() {
+  const { data, isLoading, isError, refetch } = useProjects();
+  if (isLoading) return <div>Loading projects...</div>;
+  if (isError) return <div role="alert">Projects could not be loaded. <button onClick={() => refetch()}>Try again</button></div>;
+  return (
+    <section>
+      <h1 className="text-3xl font-bold">Projects</h1>
+      <Link className="text-brand-700" to="/dashboard/payments">View payment history</Link>
+      {data?.projects?.length === 0 && <p className="mt-4">No projects yet. Accepted offers create project workspaces.</p>}
+      <div className="mt-6 grid gap-4 md:grid-cols-2">
+        {(data?.projects || []).map((p) => (
+          <Link
+            key={p._id}
+            to={`/dashboard/projects/${p._id}`}
+            className="rounded-xl border bg-white p-5 shadow-sm"
+          >
+            <h2 className="font-semibold">{p.title}</h2>
+            <p className="text-sm text-slate-500">{p.description}</p><span className="mt-3 block text-sm font-semibold text-brand-700">View project & payments</span>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+function Detail() {
+  const { projectId } = useParams();
+  const { user } = useAuth();
+  const { data, isLoading, isError, refetch } = useWorkspace(projectId);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [issue, setIssue] = useState("");
+  const update = useHiringMutation(({ id, payload }) =>
+    hiringApi.updateTask(id, payload),
+  );
+  const addTask = useHiringMutation((p) => hiringApi.createTask(projectId, p));
+  const addIssue = useHiringMutation((p) =>
+    hiringApi.createIssue(projectId, p),
+  );
+  if (isLoading) return <div>Loading workspace...</div>;
+  if (isError || !data)
+    return (
+      <div className="rounded bg-red-50 p-4 text-red-700">
+        Project workspace could not be loaded. <button className="underline" onClick={() => refetch()}>Try again</button>
+      </div>
+    );
+  const p = data.project;
+  const client =
+    data.permissions?.canFundMilestones === true ||
+    String(entityId(p.client)) === String(entityId(user));
+  const team = data.team || [];
+  return (
+    <section>
+      <Link
+        to="/dashboard/projects"
+        className="text-sm font-semibold text-brand-600"
+      >
+        Back to projects
+      </Link>
+      <header className="mt-4 rounded-2xl bg-slate-900 p-6 text-white">
+        <p className="text-sm text-slate-300">Project workspace</p>
+        <h1 className="text-3xl font-bold">{p.title}</h1>
+        <p className="mt-2 text-slate-300">
+          Client: {p.client?.name || "Project client"} · {p.progress}% complete
+        </p>
+      </header>
+      <ProjectPayments workspace={data} client={client} />
+      <div className="mt-5 rounded-xl border bg-white p-5">
+        <h2 className="font-semibold">Project team</h2>
+        <p className="mt-2 text-sm text-slate-600">
+          {team.map((m) => m.name || m.email).join(", ") ||
+            "No assigned freelancers."}
+        </p>
+      </div>
+      <div className="mt-6 grid gap-4 lg:grid-cols-4">
+        {cols.map(([id, label]) => (
+          <div className="min-h-40 rounded-xl bg-slate-100 p-3" key={id}>
+            <h2 className="mb-3 font-semibold">{label}</h2>
+            {(data.tasks || [])
+              .filter((t) => t.status === id)
+              .map((t) => (
+                <div
+                  key={t._id}
+                  className="mb-2 rounded-lg border bg-white p-3"
+                >
+                  <strong className="text-sm">{t.title}</strong>
+                  <p className="text-xs text-slate-500">
+                    Assigned: {t.assignedTo?.name || "Unassigned"}
+                  </p>
+                  {t.status === "IN_REVIEW" && client && (
+                    <button
+                      className="mt-2 rounded bg-brand-700 px-2 py-1 text-xs text-white"
+                      onClick={() =>
+                        update.mutate({
+                          id: t._id,
+                          payload: { status: "DONE", progress: 100 },
+                        })
+                      }
+                    >
+                      Approve task
+                    </button>
+                  )}
+                </div>
+              ))}
+          </div>
+        ))}
+      </div>
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <form
+          className="rounded-xl border bg-white p-5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            addTask.mutate({ title, description });
+            setTitle("");
+            setDescription("");
+          }}
+        >
+          <h2 className="font-semibold">Add work item</h2>
+          <input
+            required
+            className="mt-3 w-full rounded border p-2"
+            placeholder="Task title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+          <textarea
+            className="mt-2 w-full rounded border p-2"
+            placeholder="Description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+          <button className="mt-2 rounded bg-brand-700 px-3 py-2 text-sm font-semibold text-white">
+            Add task
+          </button>
+        </form>
+        <form
+          className="rounded-xl border bg-white p-5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            addIssue.mutate({ title: "Project issue", description: issue });
+            setIssue("");
+          }}
+        >
+          <h2 className="font-semibold">Report an issue</h2>
+          <textarea
+            required
+            className="mt-3 w-full rounded border p-2"
+            placeholder="Describe the problem"
+            value={issue}
+            onChange={(e) => setIssue(e.target.value)}
+          />
+          <button className="mt-2 rounded border border-amber-300 px-3 py-2 text-sm text-amber-700">
+            Report issue
+          </button>
+        </form>
+      </div>
+    </section>
+  );
+}
+export default function Projects() {
+  return useParams().projectId ? <Detail /> : <List />;
+}

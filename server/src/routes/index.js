@@ -23,6 +23,7 @@ import securityRoutes from './security.routes.js';
 import collaborationRoutes from './collaboration.routes.js';
 import localeRoutes from './locale.routes.js';
 import virtualCardRoutes from './virtualCard.routes.js';
+import projectWorkspaceRoutes from './projectWorkspace.routes.js';
 
 const router = Router();
 
@@ -54,6 +55,7 @@ router.use('/', securityRoutes);
 router.use('/', collaborationRoutes);
 router.use('/', localeRoutes);
 router.use('/', virtualCardRoutes);
+router.use('/', projectWorkspaceRoutes);
 
 // Future phase mounts (contracts, payments, admin...) attach here.
 
