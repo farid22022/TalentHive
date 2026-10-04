@@ -1,0 +1,226 @@
+PHASES COMPLETED
+
+Roadmap total: 15 phases.
+
+TalentHive: 15 of 15 phase areas are represented in the codebase. It is the functional reference project; this count means feature coverage is present, not that every production integration has been independently re-tested today.
+
+Giggo: 2 fully completed phases, plus 3 partial phases under active delivery.
+
+Authentication platform decision: Supabase Auth will replace Giggo's custom password/JWT/refresh-token implementation. This is a foundation adjustment, not a new marketplace phase. Existing profile and verification records remain in MongoDB.
+
+1. Phase 1 - Foundation: COMPLETE
+   Authentication, role-aware access, base React/Express structure, MongoDB connection, layouts, navigation, error handling, and automated checks.
+
+2. Phase 2 - Freelancer Profiles: PARTIAL
+   Freelancer/client onboarding, public profiles, skills, education, experience, portfolio data, and profile completion are implemented. Private CV upload is implemented locally with Phase 3 but remains incomplete until review, merge, and live browser verification.
+   Avatar delivery: authenticated JPEG/PNG/WebP upload, ImgBB-backed persistence,
+   replacement/removal UI, safe validation, and public rendering were completed
+   and live-verified by the user on 2026-09-20.
+
+3. Phase 4 - Verification: COMPLETE
+   Email verification, phone-code abstraction, document/CV verification requests, admin review queue, decisions, and verification badges are implemented.
+
+PHASES NEXT
+
+Foundation Adjustment A - Supabase Auth Migration: COMPLETE
+   Delivery: Frontend PR #30 and backend PR #8 were merged into main on 2026-09-13. Their former feat/verified-email-auth branches are no longer delivery branches. Local Giggo checkouts must now move back to updated main branches before new phase work begins.
+   UI repair: Overview email-verification checklist now renders a green check when user.emailVerified is true and an empty circle otherwise.
+   Repair status: Fixed React StrictMode callback/reset loading guard and explicit expired-link handling. Identified backend login 500 as MongoDB error 13297: URI selected lowercase giggo while Atlas contains Giggo. Added MONGODB_DB_NAME override set locally to Giggo; no data renamed or removed. Fixed a merged Zod 4 / React Hook Form resolver incompatibility by returning the frontend to compatible Zod 3.25.76 on local branch fix/auth-form-validation.
+   Configuration update: Backend SUPABASE_URL added to ignored .env. User reports receiving and completing email verification; full Giggo login and session restoration still require end-to-end verification after backend restart.
+   UI adjustment: Login offers verification-link resend with email validation, request feedback, and a 60-second cooldown retained across refreshes within the tab. Live email delivery remains unverified.
+   UI adjustment: Shared password fields include an accessible show/hide icon; passwords are hidden by default.
+   Reliability repair: The original browser-only frontend was incorrectly forced into Supabase PKCE. PKCE confirmation links require the same browser/device and produced "PKCE code verifier not found" when opened elsewhere. Giggo now uses Supabase's client-only implicit flow with URL-session detection, and old PKCE links show a concise recovery message. Users must request a new verification/reset link to receive the new flow.
+   Concurrency repair: Supabase auth-state events and the initiating login/callback could call /api/auth/me simultaneously, racing MongoDB user creation. Frontend synchronization is deduplicated and backend provisioning now recovers idempotently from concurrent inserts; an automated concurrency test covers the regression.
+   Current implementation status: Migration code is present on main in both Giggo repositories. Automated checks and the browser smoke test passed. On 2026-09-20, the user also completed the inbox-backed authentication journey and reported registration, email confirmation, login, session behavior, and logout working. Custom SMTP delivery remains a deployment-hardening concern rather than a blocker for the implemented local flow.
+   1. Create the Giggo Supabase project; configure approved localhost redirect URLs; enable Email/Password; and require email confirmation before a new account can use Giggo.
+   2. Configure a custom SMTP sender before integration testing, because reliable email-verification delivery cannot depend on Supabase's built-in development sender.
+   3. Implement the frontend with Vite React and `@supabase/supabase-js` only; do not use Next.js-only `@supabase/ssr`, `page.tsx`, or middleware files. Include sign-up, sign-in, session restore, sign-out, and the verified-email state.
+   4. Require Supabase Email confirmation in the dashboard, then make Express verify issued Supabase access tokens through Supabase JWKS; never trust client role data. Supabase's access-token JWT does not contain the email-confirmed timestamp.
+   5. Link MongoDB User records to the immutable Supabase user ID and retain Giggo roles/profiles in MongoDB.
+   6. Retire custom password hashes and RefreshToken issuance only after verified email/password registration, confirmation, login, logout, session restore, and role protection pass end-to-end.
+   7. Store only publishable Supabase configuration in the frontend; keep SMTP credentials and Supabase service-role credentials server-only and out of Git. Google OAuth is intentionally deferred.
+
+Foundation Adjustment B - Safe Account Deletion: COMPLETE
+   Clock repair (2026-09-20): allow a 30-second issuer clock lead for fresh
+   deletion sessions; the measured five-second local clock lag caused valid
+   reauthentication to fail. The ten-minute freshness limit remains enforced.
+   Implemented on the week-06-sarafat frontend and backend branches. Settings
+   requires password reauthentication and exact DELETE confirmation. The
+   backend requires recent authentication, rate-limits requests, blocks admin
+   self-deletion, deletes the Supabase identity with a server-only service-role
+   credential, cascades owned Giggo data including private conversations and
+   notification state, redacts the departing member from retained group
+   history, and retains only a minimal identity
+   tombstone so an old access token cannot recreate the account.
+   Automated account-deletion integration tests and the full backend suite pass;
+   the frontend production build also passes. The service-role key remains in
+   the ignored backend .env, and the user confirmed the live deletion journey
+   on 2026-09-20. Frontend commit ac850b4 and backend commit 4c66576 were pushed
+   to the week-06-sarafat branches.
+
+3. Phase 3 - AI CV Analyzer: MERGED; LIVE UI CHECK PENDING
+   Implemented on feat/cv-analyzer branches. At the user's direction, Farid's combined Week 05 branches were merged locally after the stronger tested CV implementation was committed; CV conflicts were resolved in favor of the tested private-storage and extraction implementation. The backend now provides private PDF/DOCX/TXT upload, safe type/size validation, server-side text extraction, a provider-isolated local heuristic analyzer, cache/force behavior, owner-scoped history, retention, deletion, profile-skill application, and storage-path redaction. The frontend mounts CV upload in both Profile and CV Analyzer, shows freelancer-only navigation, and preserves analysis/history/recommendation UI.
+   Verification status: 12 of 12 backend tests pass, including authentication, role authorization, owner isolation, caching, history, TXT extraction, replacement/removal, and invalid upload handling. The frontend production build passes. Backend npm audit reports zero vulnerabilities after the non-breaking dependency repair. DOCX extraction received a focused runtime check. A real authenticated browser pass with PDF/DOCX/TXT upload and rendered results is still required before completion.
+   Delivery status: Frontend PR #31 was merged as edca9d1 and backend PR #10 was merged as 8b1fb43. Their remote feat/cv-analyzer branches were deleted, and both local repositories were fast-forwarded to the updated origin/main on 2026-09-20. The existing wip(p6) stashes remain untouched and do not count as delivered work.
+
+5. Phase 5 - Job Marketplace
+   PARTIAL: The job marketplace is merged into main through frontend PR #31 and backend PR #10. It adds client-only job management routes/navigation plus backend job and saved-job models, APIs, validation, ownership/role authorization, persistence, and integration coverage. The combined result passes the frontend production build and backend tests.
+   Remaining gate: Perform a focused code-quality/security review, expand job edge-case tests, and run authenticated browser journeys for client posting/editing and freelancer browsing/saving.
+
+6. Phase 6 - Proposal System: COMPLETED AND MERGED
+   The full proposal implementation is present on the week-06-sarafat branches:
+   validated creation, duplicate/concurrency protection, Applied/Followed job
+   indicators, My Proposals, detail/edit/withdraw/reapply, client received-
+   proposal review, shortlist/reject/reconsider with notes, privacy controls,
+   direct access to explicitly public applicant profiles while keeping
+   incomplete profiles out of the talent directory,
+   and an editable local profile-grounded draft assistant with rate limiting,
+   fallback behavior, usage records, and AI disclosure. Completed jobs remain
+   locked because completion requires the contract lifecycle. All 29 backend
+   tests pass, backend production dependencies report zero vulnerabilities,
+   and the frontend production build passes. The frontend retains two existing
+   moderate React Router advisories whose available fix requires a breaking v7
+   upgrade. The user confirmed the authenticated browser journeys on
+   2026-09-20. Frontend commit a54a8de and backend commit 464e9dd were pushed to
+   week-06-sarafat and included in merged frontend PR #32 and backend PR #11.
+7. Phase 7 - Messaging: COMPLETED AND MERGED
+   The week-06-sarafat branches now contain direct, group, and offer-linked
+   conversations with stable cursor pagination, search, unread/read state,
+   membership authorization, authenticated Socket.IO rooms, presence, typing,
+   reconnection, retry deduplication, replies, bounded edit/delete rules,
+   reactions, per-user pins and saves, participant management, mute/archive,
+   explicit direct/group creation, toggleable conversation and user/group
+   panels, basic emoji pickers for composing and reacting, filled-color
+   pin/save states, conversation-scoped edit/delete confirmation modals, and
+   explicit attachment-policy gating. Reading either a
+   normal thread or an offer negotiation now also persists the related
+   notifications as read and refreshes the unread badge. Existing offer messages migrate
+   lazily and idempotently into the shared timeline without deleting legacy
+   records.
+   The notification center adds unread totals, read/read-all, archive, action
+   links, category preferences, real-time delivery, and event-key
+   deduplication for current message, proposal, offer, and verification events.
+   Contract, payment, and dispute producers will be connected when those source
+   workflows exist; Giggo cannot emit real events for unimplemented features.
+   All 38 backend tests pass after this UI and read-state adjustment, including
+   notification synchronization, authenticated WebSocket delivery,
+   group participant authorization, and idempotent legacy-message migration;
+   the frontend production build
+   passes; backend production dependencies
+   have zero known vulnerabilities. The two existing moderate React Router
+   advisories still require a breaking v7 upgrade.
+   Browser status: the user confirmed the completed messaging experience on
+   2026-09-21, including panel toggles, groups, emoji/reaction controls,
+   pin/save states, synchronized notification read state, and conversation-
+   scoped edit/delete modals.
+   Delivery status: frontend commit b81c010 and backend commit bbcd885 were
+   pushed to week-06-sarafat on 2026-09-21 and included in the merged frontend
+   PR #32 and backend PR #11.
+8. Phase 8 - Hiring and Contracts: MERGED THROUGH 8.3; 8.4 COMPLETED LOCALLY
+   Offer workflow 8.1 is implemented locally on the week-06-sarafat branches:
+   client draft/send/revise/withdraw, freelancer accept/decline/change-request,
+   immutable published revisions, exact-revision acceptance, offer-scoped
+   participant chat with automatic refresh and optimistic sending, an audit
+   timeline, participant privacy, bounded terms and
+   milestones, one active offer per proposal, and concurrency-safe single-job
+   acceptance. The shared messaging and contract work raises the complete
+   backend suite to 41 passing tests, and the frontend production build passes.
+   The one existing live accepted offer was migrated additively to preserve its
+   currently stored terms as the accepted revision. Offer chat now uses the
+   shared Phase 7 conversation stream; contract creation is delivered in 8.2
+   below, while the project workspace remains in 8.3. A stale Atlas proposal index that blocked the first live offer save
+   was replaced with the intended partial-unique active-offer index; the repair
+   is repeatable through the backend maintenance command and schema startup now
+   succeeds against the live database. The user confirmed the authenticated
+   browser flow, automatic message refresh, and scrolling conversation on
+   2026-09-20. Frontend commit 1ef5492 and backend commits 12f1fc4 and 53f1fa7
+   were pushed to week-06-sarafat and included in the merged frontend PR #32
+   and backend PR #11.
+   Contract lifecycle 8.2 is now implemented locally on week-06-sarafat.
+   Accepting an offer creates exactly one fixed-price or hourly contract from
+   the immutable accepted revision; retries and older accepted offers reuse or
+   backfill the same record. Contracts provide participant-only list/detail
+   APIs and pages, client pause/resume/complete/cancel actions, freelancer
+   cancellation, required cancellation reasons, terminal completed/cancelled
+   states, notifications, and a complete actor/timestamp/note audit history.
+   All 41 backend tests pass, the frontend production build passes, and backend
+   production dependencies have zero known vulnerabilities. The user confirmed
+   the authenticated browser journey on 2026-09-21. Frontend commit 01a5488
+   and backend commit 5e4c787 were pushed to week-06-sarafat and included in
+   the merged frontend PR #32 and backend PR #11.
+   Project workspace 8.3 is implemented locally on week-06-sarafat. Every
+   accepted contract creates or backfills exactly one participant-only project
+   workspace linked to its contract, job, offer conversation, client, and
+   freelancer. The dashboard provides project list/detail pages, participant
+   and contract summaries, lifecycle state, progress visualization, direct
+   contract/message navigation, and a bounded progress audit timeline.
+   Freelancers can submit forward-only progress updates from 1-99% with a
+   required note only while the contract is active; clients retain lifecycle
+   control through the contract, and completion records 100% automatically.
+   All 44 backend tests pass, the frontend production build passes, backend
+   production dependencies have zero known vulnerabilities, and the existing
+   two moderate frontend React Router advisories still require a breaking v7
+   upgrade. The user confirmed the authenticated browser journey on
+   2026-09-21. Frontend commit a86b9b0 and backend commit d23b585 were pushed
+   to week-06-sarafat. Consolidated frontend PR #32 and backend PR #11 were
+   merged into main as 7c0ac18 and c4083a3. Frontend and backend CI both passed.
+   A socket shutdown race found by the first backend CI run was fixed
+   in backend commit 6fd50e4 and its messaging suite passed three consecutive
+   local runs before the successful rerun.
+   Milestones and work submissions 8.4 are implemented locally on the
+   week-07-sarafat branches. Accepted fixed-price terms create ordered project
+   milestones, including a default delivery milestone when no explicit fixed-
+   price milestone was accepted. Freelancers can start work, submit versioned
+   descriptions and delivery links, and resubmit after revision requests.
+   Clients can approve the latest submission or request revisions with required
+   feedback. All versions and feedback remain visible, participant roles and
+   active-contract state are enforced server-side, repeated/stale transitions
+   are rejected, milestone approval advances project progress, and fixed-price
+   contracts cannot complete until every milestone is approved. Hourly
+   contracts remain reserved for Phase 9 time tracking.
+   Automated status for 8.4: all 46 backend tests pass, the frontend production
+   build passes, backend production dependencies have zero known
+   vulnerabilities, and the two existing moderate frontend React Router
+   advisories still require a breaking v7 upgrade. An isolated authenticated
+   client/freelancer browser journey passed on 2026-09-23. It verified initial
+   submissions, blocked premature contract completion, revision feedback,
+   version-two resubmission with preserved history, final approvals, 99%
+   active-project progress, and synchronized 100% completion without unexpected
+   console, page, or HTTP 5xx errors. Frontend commit 1992fb7 and backend commit
+   8d08e7f were pushed to week-07-sarafat on 2026-09-23.
+9. Phase 9 - Hourly Work and Marketplace Finance: IN PROGRESS
+   Hourly time tracking 9.1 is implemented locally on the week-07-sarafat
+   frontend and backend branches. Hourly projects now use a participant-only
+   work diary instead of fixed-price milestones. Freelancers can run one
+   active timer across Giggo, send heartbeats, stop safely and idempotently,
+   add non-overlapping manual time, and revise or soft-delete recent entries
+   with required reasons and retained history. Entries snapshot the accepted
+   hourly rate/currency and show daily, period, and estimated-value summaries;
+   they do not create invoices or payment records. Active-contract, role,
+   ownership, duration, lookback, overlap, retry, and stale-revision rules are
+   enforced server-side. Existing timers can be safely closed after a contract
+   is paused or terminated, capped at the transition/heartbeat boundary.
+   Automated status: all 50 backend tests pass and the frontend production
+   build passes. Authenticated client/freelancer browser verification, focused
+   commits, and remote delivery remain pending; do not mark 9.1 complete until
+   those gates pass.
+10. Phase 10 - Services Marketplace
+11. Phase 11 - Reviews and Reputation
+12. Phase 12 - AI Matching
+13. Phase 13 - Disputes and Moderation
+14. Phase 14 - Admin Platform
+15. Phase 15 - Production Hardening
+
+CURRENT FORWARD PRIORITY (2026-09-23)
+1. Verify and deliver 9.1 hourly time tracking.
+2. Add 9.2 immutable hourly billing periods and invoice snapshots.
+3. Add 9.3-9.4 development-only escrow, ledger, wallet, refund, and withdrawal
+   simulation with idempotency and reconciliation; no real money claims.
+4. Add 11.1-11.2 post-contract reviews and reputation.
+5. Add 13.2-13.3 disputes, moderation, and auditable case handling.
+6. Improve 12.2 marketplace-wide search and matching.
+7. Design Phase 10 services/packages only after the core hiring, delivery,
+   trust, and remedy loop is coherent.
+8. Finish Phase 14 administration and Phase 15 production hardening.
+
+Rule: A phase moves to completed only after its frontend, API, validation, authorization, persistence, tests, and integration verification pass.

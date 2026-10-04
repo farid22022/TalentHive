@@ -1,0 +1,583 @@
+GIGGO REFERENCE-GAP BACKLOG
+===========================
+
+Purpose
+-------
+This file lists functionality found in the TalentHive codebase but missing or
+incomplete in Giggo. We will implement it one vertical slice at a time.
+
+Audit baseline: 2026-09-20
+- TalentHive baseline: main / origin/main
+- Giggo baseline: main / origin/main in both frontend and backend repositories
+- Important: Frontend PR #31 and backend PR #10 are merged, their remote
+  feature branches are deleted, and both local main branches are synchronized.
+
+Status markers
+--------------
+[ ] Not started in Giggo
+[~] Partially present in Giggo or incomplete in the TalentHive reference
+[!] TalentHive code exists but is broken, simulated, unmounted, or unsuitable
+    for direct copying; redesign and verify it before implementation
+[x] Completed in Giggo and not part of this missing-feature backlog
+
+Definition of done for every item
+---------------------------------
+An item moves to complete only after its UI, API contract, server-side
+validation, authorization, persistence, failure states, relevant indexes,
+automated tests, production build, and authenticated browser journey pass.
+Secrets must remain in ignored environment files. Each item should be delivered
+through a focused branch and reviewed pull request.
+
+
+CURRENT GIGGO BASELINE - DO NOT REIMPLEMENT
+===========================================
+
+[x] Supabase email/password authentication and verified-email state
+[x] Freelancer and client onboarding/profile foundations
+[x] Email, phone, document, and admin verification workflow
+[x] CV upload and AI-assisted CV analysis
+[x] Client job management, public job browsing, filters, and saved jobs
+
+
+BEFORE THE NEXT MARKETPLACE PHASE
+=================================
+
+0.1 [~] Deliver and verify the current Giggo work
+    - Completed: committed and pushed the authentication reliability fixes.
+    - Completed: frontend PR #31 and backend PR #10 passed CI, received the
+      teammate handoff, merged into main, and had their remote branches deleted.
+    - Completed: both local repositories were fast-forwarded to origin/main on
+      2026-09-20 and contain CV analysis, job marketplace, and auth repairs.
+    - Completed: the user verified the complete authentication journey,
+      including email confirmation and working sign-in, on 2026-09-20.
+    - Remaining: pass the authenticated browser journeys for CV upload/results
+      and client job posting/editing plus freelancer browsing/saving.
+
+0.2 [x] Complete avatar upload
+    - Implemented on both week-06-sarafat branches: the AvatarUpload component
+      is connected to freelancer and client profiles with upload/remove states.
+    - Added authenticated JPEG/PNG/WebP upload, a 5 MB limit, signature checks,
+      MongoDB persistence, safe rendering, and avatar projection on public
+      profiles, jobs, and the verification review queue.
+    - Added configurable local or ImgBB storage. The ImgBB API key remains
+      server-only, provider responses are validated, requests have a timeout,
+      and provider errors cannot leak the key or replace the current avatar.
+    - Local replacement/removal deletes the old file. ImgBB replacement/removal
+      detaches the old URL from Giggo; its v1 upload API does not document a
+      server-side deletion endpoint, so the provider may retain the hosted copy.
+    - Automated status: all 18 backend tests and the frontend production build
+      pass; backend production dependency audit reports zero vulnerabilities.
+    - Live verification: the user confirmed the configured ImgBB upload flow is
+      working on 2026-09-20. Implementation and verification are complete.
+
+0.3 [x] Implement safe account deletion
+    - Implemented on both week-06-sarafat branches: Settings requires the
+      current password plus exact DELETE confirmation before calling the new
+      authenticated DELETE /api/auth/account endpoint.
+    - The backend requires a recently issued Supabase session, rate-limits the
+      operation, blocks administrator self-deletion, and uses the server-only
+      Supabase service-role credential to remove the authentication identity.
+    - Giggo deletes the user's profiles, CV, analyses, verification records and
+      documents, jobs, saved jobs, private/offer conversations, notification
+      state, refresh tokens, local avatar, and User row. Group conversations
+      remain usable for other members while the deleted user's messages are
+      redacted and their reactions, pins, and membership are removed.
+      A minimal Supabase-ID tombstone prevents an old JWT from recreating the
+      deleted MongoDB account. ImgBB copies may remain because its v1 upload API
+      has no documented authenticated server-side deletion endpoint.
+    - Automated status: account-deletion integration tests cover success,
+      exact confirmation, recent authentication, unauthenticated/repeat calls,
+      cascade cleanup, stale-token recreation prevention, and rollback when the
+      Supabase deletion request fails. The full backend test suite and frontend
+      production build pass.
+    - Clock repair: fresh tokens tolerate up to 30 seconds of issuer clock
+      lead; invalid, stale, and far-future timestamps remain rejected. The
+      local clock was measured about five seconds behind Supabase on 2026-09-20.
+    - Live verification: the server-only Supabase service-role key was added to
+      the ignored backend .env, the backend was restarted, and the user
+      confirmed successful account deletion on 2026-09-20.
+    - Delivery: frontend commit ac850b4 and backend commit 4c66576 were pushed
+      to the week-06-sarafat branches.
+
+
+PHASE 6 - PROPOSALS AND APPLICANTS
+==================================
+
+6.1 [x] Proposal creation
+    - Implemented on both week-06-sarafat branches: freelancers can open an
+      Apply form from an open job and submit a cover letter, bid
+      type/amount/currency, estimated days, optional milestones, and an
+      AI-assistance disclosure.
+    - Added Proposal persistence, job/freelancer/client ownership references,
+      bounded validation, supporting indexes, a compound unique constraint,
+      an explicit duplicate check, and concurrent-submission coverage.
+    - The API requires a freelancer role, rate-limits submissions, rejects
+      unauthenticated/client callers, owned jobs, closed jobs, invalid payloads,
+      and duplicate applications. Job and account deletion remove related
+      proposals.
+    - Job details now show the proposal state and prevent resubmission. The job
+      board also marks jobs the signed-in freelancer applied to or followed and
+      exposes authenticated Applied and Followed filters. Closed jobs remain
+      visible only to their owner, an applicant, or a follower.
+    - Automated status: all 29 backend tests pass, including proposal creation,
+      authorization, validation, duplicates, concurrency, and cascade cleanup.
+      The frontend production build passes. Backend production dependencies
+      report zero vulnerabilities; the frontend retains two existing moderate
+      React Router advisories whose fix requires a breaking v7 upgrade.
+    - A demo freelancer proposal exists for the React dashboard job, and a
+      direct database/service check confirms it appears in the Applied filter.
+      The authenticated browser journeys were confirmed by the user on
+      2026-09-20. The frontend and backend implementations were committed and
+      pushed to week-06-sarafat and included in merged frontend PR #32 and
+      backend PR #11.
+
+6.2 [x] Freelancer proposal management
+    - Implemented on both week-06-sarafat branches: the public job board
+      provides Applied and Followed views with proposal-status indicators,
+      pagination, and contextual empty states. The API derives these
+      relationships server-side and rejects unauthenticated or non-freelancer
+      activity-filter requests.
+    - Added My Proposals, proposal detail, status filters, pagination, edit,
+      withdraw, and reapply. Only submitted/shortlisted proposals on open jobs
+      are editable. Reapplying revives the withdrawn record so the unique
+      freelancer/job constraint remains intact.
+    - Completed cannot be derived from a job or proposal status. Its filter is
+      visibly locked until an accepted proposal creates a contract and that
+      contract reaches a recorded completed state.
+    - Automated management and authorization tests pass, and the authenticated
+      browser journey was confirmed by the user on 2026-09-20. The changes are
+      committed, pushed, and included in merged frontend PR #32 and backend
+      PR #11.
+
+6.3 [x] Client applicant review
+    - Implemented Proposals Received across the client's jobs and per-job
+      applicant links from My Jobs and job details. The queue supports status
+      filters, bid sorting, pagination, full proposal/milestone views, public
+      freelancer profile context, and first-view timestamps.
+    - Job owners can shortlist, reject, reconsider, and share bounded review
+      notes. Shortlisting is explicitly not hiring; acceptance remains in the
+      offer/contract workflow.
+    - Server authorization limits content and decisions to the proposal author
+      or related job owner. Same-role outsiders receive a generic not-found
+      response so proposal existence is not exposed.
+    - Fixed applicant-profile navigation: an explicitly public freelancer
+      profile is available from a proposal even before onboarding is complete;
+      only completed profiles are included in the searchable talent directory.
+    - Automated review, transition, privacy, and role tests pass, and the
+      authenticated browser journey was confirmed by the user on 2026-09-20.
+      The changes were committed, pushed, and included in merged frontend PR
+      #32 and backend PR #11.
+
+6.4 [x] AI proposal-draft assistant
+    - Implemented an editable, local deterministic draft generated only from
+      the selected job, saved freelancer profile, chosen tone, and optional
+      notes. It suggests a bid and delivery period, identifies matched/missing
+      skills, and provides revision prompts; it never submits automatically.
+    - Added strict request validation, freelancer-only authorization, open-job
+      and ownership checks, ten requests per hour, provider isolation with a
+      deterministic fallback, minimal usage records, deletion cleanup, and an
+      automatically enabled AI-assistance disclosure when a draft is used.
+    - Automated draft, non-submission, role, validation, usage, and account-
+      deletion tests pass, and the authenticated browser journey was confirmed
+      by the user on 2026-09-20. The changes are committed and pushed.
+      The changes were included in merged frontend PR #32 and backend PR #11.
+
+
+PHASE 7 - MESSAGING, COLLABORATION, AND NOTIFICATIONS
+=====================================================
+
+7.1 [x] Conversation and message foundation
+    - Implemented locally on both week-06-sarafat branches: deterministic
+      private threads, owner-managed groups, participant state, stable cursor
+      pagination, unread counts, read state, conversation/message search, and
+      inbox navigation. Every operation verifies current membership.
+    - Offer negotiations now use this shared history. Existing OfferMessage
+      records are copied lazily and idempotently into the shared timeline,
+      while the old records remain untouched for rollback safety.
+    - The authenticated browser journey was confirmed by the user on
+      2026-09-21.
+
+7.2 [x] Real-time messaging
+    - Implemented an authenticated Socket.IO server using verified Supabase
+      access tokens, authorized conversation rooms, live persisted messages,
+      typing indicators, presence, automatic reconnection, and client-message
+      IDs for retry deduplication. REST remains the source of history.
+    - An automated integration test opens a real WebSocket, joins an authorized
+      room, posts through REST, and receives the saved message event.
+    - Live browser behavior was confirmed by the user on 2026-09-21.
+
+7.3 [x] Message collaboration controls
+    - Implemented replies, a 15-minute sender edit window, sender/owner delete
+      rules, reactions, per-user pins, saved messages, group creation, owner
+      add/remove controls, mute, archive, and filtered message views.
+    - The inbox now exposes separate Message and Group actions, toggleable
+      conversation and user/group detail panels, basic emoji pickers for the
+      composer and reactions, and filled-color pin/save icons instead of text
+      status labels. Editing and deleting now use accessible modals contained
+      within the active chat rather than browser-native prompt dialogs.
+    - Attachments intentionally remain disabled. Their UI explains that a
+      storage, malware-scanning, authorization, and retention policy must be
+      approved before files are accepted.
+    - The collaboration controls and conversation-scoped edit/delete modals
+      were confirmed working by the user on 2026-09-21.
+
+7.4 [x] Notification center
+    - Implemented persisted in-app notifications, unread totals, read/read-all,
+      archive, action links, category preferences, Socket.IO delivery, and
+      event-key deduplication. Current producers cover messages, proposals,
+      offers, and verification decisions.
+    - Opening a regular conversation or an offer negotiation now persists its
+      related message notifications as read and refreshes the unread badge.
+    - Contract, payment, and dispute categories are ready, but those events
+      cannot be generated until their source workflows exist in Phases 8, 9,
+      and 13. Add each producer with its source feature instead of simulating
+      notifications now.
+    - Automated status: all 38 backend tests pass after the latest UI/read-state
+      adjustment; the frontend production build passes; backend production dependencies have zero known
+      vulnerabilities. Two existing moderate React Router advisories remain
+      because the available repair is a breaking v7 upgrade.
+    - Notification read synchronization was confirmed working by the user on
+      2026-09-21.
+    - Phase 7 implementation and live UI verification are complete. Frontend
+      commit b81c010 and backend commit bbcd885 were pushed to
+      week-06-sarafat on 2026-09-21 and were included in merged frontend PR #32
+      and backend PR #11.
+
+
+PHASE 8 - OFFERS, CONTRACTS, AND PROJECT DELIVERY
+=================================================
+
+8.1 [x] Offer workflow
+    - Allow a job owner to create, send, withdraw, and revise an offer.
+    - Allow the selected freelancer to accept, reject, or request changes.
+    - Validate that the job, client, freelancer, and proposal relationships are
+      consistent before an offer can be sent or accepted.
+    - Implemented on both week-06-sarafat branches: clients can create a draft
+      only from their own shortlisted proposal, revise or revoke a sent offer,
+      send it with bounded terms and expiration, and withdraw it. Freelancers
+      can see only sent offers addressed to them, then accept, decline, or send
+      a bounded change request.
+    - Added immutable published revisions, exact-revision acceptance, a
+      version comparison/timeline UI, one-active-offer-per-proposal
+      enforcement, participant-only reads,
+      strict role/state transitions, proposal decision locks during active
+      negotiation, safe job/account deletion cleanup, and conditional job
+      claiming so concurrent acceptances cannot hire two proposals for one job.
+    - The dashboard now provides role-specific offer lists, offer filters,
+      create/revise forms, fixed-price milestone validation, a private
+      negotiation conversation backed by the shared Phase 7 message stream,
+      change-request history,
+      and proposal-to-offer navigation. Accepted offers close the job and mark
+      the selected proposal accepted; contract/project creation remains in 8.2.
+    - Automated status: all 32 backend tests pass, including offer privacy,
+      immutable revision history, stale-revision rejection, negotiation chat,
+      contact-detail controls, acceptance, cleanup, and concurrency.
+      The frontend production build passes and backend production dependencies
+      report zero vulnerabilities. The frontend retains the two existing
+      moderate React Router advisories requiring a breaking v7 upgrade.
+      The additive live migration preserved the one existing accepted offer as
+      an exact accepted revision. Historical terms overwritten before this
+      change cannot be reconstructed. The authenticated two-party browser flow,
+      automatic message refresh, and fixed-height scrolling conversation were
+      confirmed by the user on 2026-09-20. Frontend commit 1ef5492 and backend
+      commit 53f1fa7 were pushed to week-06-sarafat; the separate authentication
+      concurrency repair is backend commit 12f1fc4. These changes were included
+      in merged frontend PR #32 and backend PR #11.
+
+8.2 [x] Contract lifecycle
+    - Create fixed-price and hourly contracts from accepted offers.
+    - Add active, paused, completed, and cancelled transitions with strict
+      participant authorization and an auditable history.
+    - Implemented locally on both week-06-sarafat branches. The accepted offer
+      revision is copied into one immutable contract using unique offer/job
+      constraints and idempotent retry/backfill behavior. Participant-only
+      list/detail APIs and dashboard pages expose the locked terms, milestones,
+      counterpart, current state, and full status history.
+    - Clients can pause, resume, complete, or cancel. Freelancers can cancel
+      active/paused work. Cancellation requires a reason, completed/cancelled
+      states are terminal, and every transition records actor, role, timestamp,
+      previous/new status, and note while notifying the other participant.
+    - All 41 backend tests pass. Coverage verifies fixed and hourly creation, retry safety,
+      outsider isolation, role restrictions, valid transitions, cancellation
+      reasons, audit history, and the existing one-winner hiring concurrency.
+      The frontend production build passes.
+    - The authenticated client/freelancer browser journey was confirmed by the
+      user on 2026-09-21. Frontend commit 01a5488 and backend commit 5e4c787
+      were pushed to week-06-sarafat and included in merged frontend PR #32 and
+      backend PR #11.
+
+8.3 [x] Project workspace
+    - Add project list/detail pages, participants, progress, contract summary,
+      and role-specific actions.
+    - Do not copy the unmerged TalentHive Farid branch wholesale; it contains
+      unrelated nested repositories and workspace artifacts.
+    - Implemented locally on both week-06-sarafat branches as a one-to-one
+      operational workspace for each accepted contract. The contract remains
+      the source of truth for commercial terms and lifecycle state; the project
+      stores forward-only progress and a bounded actor/time/note history.
+    - Participant-only APIs and dashboard pages provide project lists, detail,
+      client/freelancer context, contract summary, status, progress, dates, and
+      links to the contract and existing offer conversation. Freelancers can
+      report 1-99% progress with a required note only during active work;
+      clients manage lifecycle actions from the contract, and completion
+      automatically records 100%.
+    - Automated status: all 44 backend tests pass, including idempotent project
+      creation, outsider isolation, role restrictions, increasing-progress
+      rules, pause enforcement, notifications, and completion synchronization.
+      The frontend production build passes and backend production dependencies
+      have zero known vulnerabilities. The authenticated client/freelancer
+      browser journey was confirmed by the user on 2026-09-21. Frontend commit
+      a86b9b0 and backend commit d23b585 were pushed to week-06-sarafat.
+      Consolidated frontend PR #32 and backend PR #11 were merged into main as
+      7c0ac18 and c4083a3. Frontend and backend CI both passed.
+      The first backend run exposed a socket shutdown race; backend commit
+      6fd50e4 contains the repair, its messaging suite passed three consecutive
+      local runs, and the GitHub rerun passed.
+
+8.4 [x] Milestones and work submissions
+    - Add milestone creation/state, start, submission, client approval, and
+      revision requests.
+    - Preserve submission history and prevent invalid or repeated transitions.
+    - Implemented locally on both week-07-sarafat branches. Accepted fixed-price
+      contract milestones are materialized once in the project workspace; a
+      default delivery milestone is created when accepted fixed-price terms do
+      not contain explicit milestones. Hourly contracts intentionally have no
+      delivery milestones because their work diary belongs to Phase 9.
+    - Freelancers can start pending milestones, submit descriptions and up to
+      ten HTTP/HTTPS delivery links, and submit a new version after a client
+      revision request. Clients can approve only the latest pending submission
+      or request a revision with required feedback. The workspace shows every
+      version, link, decision, and feedback entry.
+    - Server rules enforce project participation, role ownership, active-
+      contract state, exact milestone/submission relationships, concurrency-
+      guarded transitions, and rejection of stale or repeated actions.
+      Approved milestone ratios advance project progress up to 99%; completing
+      the contract records 100% and is blocked until all fixed-price milestones
+      are approved. Job/account cleanup removes milestone submission data.
+    - Automated status: all 46 backend tests pass, including default milestone
+      creation, start, submission,
+      revision, resubmission, approval, history, outsider/role isolation,
+      paused-contract blocking, repeated-action rejection, notifications, and
+      completion gating. The frontend production build passes and backend
+      production dependencies have zero known vulnerabilities. The two known
+      moderate frontend React Router advisories still require a breaking v7
+      upgrade. An isolated authenticated client/freelancer browser journey
+      passed on 2026-09-23: submissions, premature-completion blocking,
+      revision feedback, versioned resubmission history, approvals, 99% active
+      progress, and synchronized 100% contract/project completion all worked
+      without unexpected console, page, or HTTP 5xx errors. Frontend commit
+      1992fb7 and backend commit 8d08e7f were pushed to week-07-sarafat on
+      2026-09-23.
+
+
+PHASE 9 - HOURLY WORK AND MARKETPLACE FINANCE
+=============================================
+
+9.1 [~] Hourly time tracking - IMPLEMENTED; BROWSER VERIFICATION PENDING
+    - Add active timer, heartbeat, stop, manual entries, work descriptions,
+      deletion rules, summaries, work-diary views, and revision history.
+    - Prevent concurrent timers and unauthorized time manipulation.
+    - Implemented locally on both week-07-sarafat branches. Hourly project
+      pages now replace the fixed-price milestone panel with a participant-only
+      work diary. Freelancers can start one active timer across Giggo, send
+      heartbeats, stop idempotently, add past manual time, edit eligible
+      entries, and soft-delete with a reason. Clients receive read-only diary
+      summaries and notifications.
+    - The backend enforces hourly-contract scope, participant ownership,
+      active-contract writes, 12-hour sessions, 30-day manual lookback,
+      overlap rejection, seven-day change windows, optimistic revisions,
+      idempotency keys, immutable rate/currency snapshots, and audit history.
+      A running timer can still be safely closed after pause/termination and is
+      capped at the last safe heartbeat/contract-transition boundary.
+    - All 50 backend tests pass and the frontend production build passes on
+      2026-09-23. Authenticated client/freelancer browser verification, focused
+      commits, push, review, and merge are still required before [x].
+
+9.2 [ ] Hourly billing periods and invoices
+    - Calculate billable time consistently and create immutable invoice
+      snapshots with rate-history support.
+
+9.3 [!] Payment abstraction and milestone escrow simulation
+    - TalentHive main contains funding/release, payment records, webhooks, and a
+      mock provider; this is not a real payment integration.
+    - First implement an explicit development-only simulated provider with
+      idempotency, ledger invariants, failure paths, and audit records.
+    - Real payment providers require a separate approved design, credentials,
+      webhook verification, refund policy, and deployment decision.
+
+9.4 [ ] Wallet, transaction history, refunds, and withdrawals
+    - Add wallet balances derived from an immutable ledger rather than trusting
+      client-supplied totals.
+    - Add transaction history, fees, refunds, withdrawal requests, failure
+      recovery, reconciliation, and admin-auditable adjustments.
+
+9.5 [!] Simulated freelancer virtual card
+    - TalentHive has card creation, activation, freeze/unfreeze, reload, ledger,
+      and eligibility code, but 2 of its current virtual-card tests fail.
+    - Fix the reference behavior or design Giggo's rules independently before
+      porting it. Clearly label the card as simulated and never request PINs or
+      banking credentials.
+
+
+PHASE 10 - SERVICES MARKETPLACE
+===============================
+
+10.1 [!] Design the services marketplace before implementation
+     - TalentHive only contains a static Services marketing page; service
+       packages, orders, purchases, delivery, and management are not actually
+       implemented there.
+     - Define service/package schema, tiers, scope, revisions, delivery time,
+       search, ordering, fulfilment, cancellation, and payment linkage first.
+
+10.2 [ ] Implement service creation and management
+     - Freelancer service CRUD, drafts/publishing, media, packages, pricing,
+       availability, validation, and ownership authorization.
+
+10.3 [ ] Implement service discovery and ordering
+     - Search/filter/detail pages, order creation, requirements collection,
+       delivery, revisions, completion, cancellation, and review eligibility.
+
+
+PHASE 11 - REVIEWS AND REPUTATION
+=================================
+
+11.1 [ ] Review eligibility and creation
+     - Permit one review per participant only after an eligible completed
+       contract or service order.
+     - Add overall and category ratings, title, comment, and validation.
+
+11.2 [ ] Public reviews and reputation
+     - Display paginated reviews on public profiles and calculate reputation
+       from verified marketplace outcomes.
+     - Do not allow users or clients to submit their own reputation totals.
+
+11.3 [ ] Review replies and reports
+     - Add one controlled reply from the reviewed party and a report path for
+       moderation, including status and audit history.
+
+
+PHASE 12 - AI MATCHING AND ADVANCED DISCOVERY
+=============================================
+
+12.1 [ ] Transparent job-to-freelancer matching
+     - Analyze job requirements and rank eligible applicants/freelancers using
+       explainable matched skills, missing skills, and reputation signals.
+     - Keep AI advisory only; it must not automatically reject or hire users.
+
+12.2 [~] Global marketplace search
+     - TalentHive has backend search code, but its frontend search hooks are not
+       connected to the visible pages.
+     - Add a real Giggo search UI for jobs, freelancers, agencies, and services
+       with suggestions, pagination, filters, and bounded queries.
+
+12.3 [ ] Saved discovery and recommendations
+     - Add search history, saved searches, saved freelancers, recommended jobs,
+       and preference controls.
+
+
+PHASE 13 - AGENCIES, DISPUTES, MODERATION, AND SECURITY
+======================================================
+
+13.1 [~] Agency marketplace
+     - Add agency creation, public profiles, workspace, membership roles,
+       invitations, acceptance/decline, member management, and authorization.
+     - TalentHive's core agency pages exist, but invitation/member management is
+       mostly backend-only and requires complete Giggo UI and tests.
+
+13.2 [~] Dispute and resolution workflow
+     - Add dispute creation, detail, evidence, responses, status transitions,
+       resolution, refunds/adjustments, and participant/admin authorization.
+     - TalentHive's frontend only lists disputes and links to an unregistered
+       detail route, so it is not a complete reference implementation.
+
+13.3 [~] User reports and moderation
+     - Add report creation, admin moderation queue, action reasons, appeal or
+       reversal rules, account/content effects, and audit records.
+
+13.4 [~] Security event and risk tracking
+     - Add device/session records, suspicious-event logging, risk signals,
+       bounded admin visibility, and privacy-conscious retention.
+
+
+PHASE 14 - ADMIN PLATFORM
+=========================
+
+14.1 [!] Mount and secure a real admin API
+     - TalentHive has admin controller/routes code, but admin.routes.js is not
+       mounted in its main route index; its Admin Dashboard calls unavailable
+       endpoints.
+     - Build Giggo admin routes deliberately with server-side admin checks,
+       validation, pagination, audit logging, and tests.
+
+14.2 [ ] Admin operations dashboard
+     - Marketplace health, users, contracts, disputes, reports, payments,
+       verification, security events, and recent operational activity.
+
+14.3 [ ] User and marketplace management
+     - Safe suspend/reactivate actions, moderation actions, finance review,
+       configurable limits/settings, reason capture, and reversible workflows.
+
+
+PHASE 15 - LOCALIZATION, PWA, AND PRODUCTION HARDENING
+=====================================================
+
+15.1 [~] Locale and currency preferences
+     - Add supported currency records, locale/timezone/region preferences and
+       consistent date, number, and money formatting.
+     - TalentHive does not provide full text translation; do not label this as
+       internationalization until translated content is implemented.
+
+15.2 [ ] PWA and offline status
+     - Add web manifest, icons, production service worker, safe cache strategy,
+       update handling, offline indicator, and cache/version invalidation.
+
+15.3 [ ] API abuse protection and security review
+     - Global and endpoint-specific rate limits, secure headers, strict CORS,
+       upload controls, authorization matrix, dependency audit, injection and
+       sensitive-data review.
+
+15.4 [ ] Operational visibility
+     - Structured logging, request IDs, safe error context, metrics, liveness,
+       readiness, dependency health, alerting plan, and retention policy.
+
+15.5 [ ] Performance and data hardening
+     - Verify indexes from real access patterns, pagination bounds, N+1 risks,
+       concurrency, idempotency, bundle size, lazy loading, and query latency.
+
+15.6 [ ] Email, SMS, storage, and AI provider readiness
+     - Replace development mocks only when approved provider configuration,
+       failure handling, retry rules, costs, privacy, and secret storage are
+       documented and tested.
+
+15.7 [ ] Deployment, backup, and recovery
+     - Separate development/staging/production configuration, CI gates,
+       migrations, rollback, MongoDB backup/restore test, Supabase redirect and
+       SMTP configuration, domain/TLS, monitoring, and incident checklist.
+
+15.8 [ ] Final end-to-end and accessibility verification
+     - Test critical client and freelancer journeys at desktop and mobile
+       widths, keyboard navigation, focus, labels, contrast, reduced motion,
+       refresh/retry behavior, browser console, and failed network requests.
+
+
+RECOMMENDED EXECUTION ORDER
+===========================
+
+1. Verify, commit, and deliver 9.1 hourly tracking.
+2. Implement 9.2 immutable hourly billing periods and invoice snapshots.
+3. Implement 9.3-9.4 development-only escrow and ledger-backed finance with
+   idempotency, failure recovery, and reconciliation before any real provider.
+4. Implement 11.1-11.2 post-contract reviews and reputation so marketplace
+   trust follows completed work.
+5. Implement 13.2-13.3 disputes and moderation so failed engagements have a
+   controlled remedy path.
+6. Improve 12.2 marketplace-wide search/matching after trustworthy outcome
+   data exists.
+7. Design Phase 10 services/packages after the core hiring, delivery, finance,
+   trust, and remedy loop is coherent; do not copy a static reference page.
+8. Finish Phase 14 administration and Phase 15 production-hardening gates
+   before deployment.
+
+Rule: work on one numbered item at a time. Do not mark a whole phase complete
+because files exist; mark only the verified item complete and record its branch,
+PR, tests, build, and browser evidence.
